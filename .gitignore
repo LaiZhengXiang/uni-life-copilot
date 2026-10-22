@@ -1,0 +1,19 @@
+# Secrets: the Gemini API key lives here. Never commit it.
+.env
+*.env
+!.env.example
+
+# Local database (your extracted tasks)
+*.db
+
+# Python clutter
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

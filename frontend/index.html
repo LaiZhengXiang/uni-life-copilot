@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uni-Life Copilot</title>
+    <!-- Use Inter font to match the mockup -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <nav class="navbar">
+            <div class="logo">
+                <div class="logo-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                <span>Uni-Life Copilot</span>
+            </div>
+            
+            <div class="nav-links">
+                <a href="#" class="active">Dashboard</a>
+                <a href="#">Task Planner</a>
+                <a href="#">Lecture Summarizer</a>
+                <a href="#">Calendar Sync</a>
+            </div>
+            
+            <div class="user-profile">
+                <button class="icon-btn"><i class="fa-regular fa-bell"></i></button>
+                <div class="avatar-container">
+                    <img src="https://ui-avatars.com/api/?name=Alex+Mercer&background=random" alt="User Avatar" class="avatar">
+                    <span class="user-name">Alex Mercer</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Left Column -->
+            <div class="left-col">
+                
+                <!-- Upload Panel -->
+                <div class="glass-panel parser-panel">
+                    <h2>PDF Document Parser</h2>
+                    <p class="panel-desc">Transform any lecture slide, paper guidelines, or course syllabus into structural visual tasks.</p>
+                    
+                    <div class="drop-zone" id="drop-zone">
+                        <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <h3>Drop Assignment or Lecture Note PDF here</h3>
+                        <p>Or browse files from your computer (Max size 32MB)</p>
+                        <button class="browse-btn" id="browse-btn"><i class="fa-solid fa-paperclip"></i> Browse Files</button>
+                        <input type="file" id="file-input" accept="application/pdf" hidden>
+                    </div>
+                </div>
+
+                <!-- Features Info Panel -->
+                <div class="glass-panel flow-panel">
+                    <h3 class="panel-subtitle">HOW COPILOT ACCELERATES YOUR FLOW</h3>
+                    <div class="feature-list">
+                        <div class="feature-item">
+                            <div class="feature-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                            <div class="feature-text">
+                                <h4>Syllabus parsing to calendar sync</h4>
+                                <p>Upload a 15-page syllabus and instantly map out the entire semester's deliverables.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                            <div class="feature-text">
+                                <h4>Intelligent urgency calculator</h4>
+                                <p>Smart scheduling based on task complexity, deadlines, and grade weight.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column -->
+            <div class="right-col">
+                
+                <!-- Main Task Board -->
+                <div class="glass-panel board-panel">
+                    <div class="board-header">
+                        <div class="board-title-area">
+                            <h2>Extracted Task Board</h2>
+                            <p>Review generated work plans and extracted priorities.</p>
+                        </div>
+                        <div class="view-toggles">
+                            <button class="toggle-btn active">Grid View</button>
+                            <button class="toggle-btn">List View</button>
+                        </div>
+                    </div>
+
+                    <div class="cards-layout">
+                        
+                        <!-- Latest Extraction Mockup -->
+                        <div class="extraction-col">
+                            <div class="col-header">
+                                <span class="dot blue"></span> LATEST EXTRACTION
+                            </div>
+                            
+                            <div class="task-card">
+                                <div class="card-tags">
+                                    <span class="tag gray">ESSAY / REPORT</span>
+                                    <span class="tag red"><span class="dot red-dot"></span> CRITICAL URGENCY</span>
+                                </div>
+                                
+                                <h3 class="card-title">Calculus III: Fluid Dynamics Analysis</h3>
+                                <p class="card-desc">Analyze Navier-Stokes equations and submit a 5-page draft with velocity field plots.</p>
+                                
+                                <div class="deadline-box">
+                                    <i class="fa-regular fa-calendar"></i>
+                                    <div class="deadline-text">
+                                        <span class="deadline-label">DEADLINE DATE</span>
+                                        <span class="deadline-value">Friday, Oct 24 at 11:59 PM <span class="red-text">(2 days left)</span></span>
+                                    </div>
+                                </div>
+
+                                <div class="extracted-steps">
+                                    <h4>AUTOMATICALLY EXTRACTED STEPS</h4>
+                                    <ul>
+                                        <li class="completed"><i class="fa-solid fa-circle-check"></i> Solve Navier-Stokes boundary equations</li>
+                                        <li><i class="fa-regular fa-circle"></i> Plot velocity vector field in Python/Matplotlib</li>
+                                        <li><i class="fa-regular fa-circle"></i> Write introduction and methodology chapters</li>
+                                    </ul>
+                                </div>
+
+                                <div class="card-footer">
+                                    <div class="source-file"><i class="fa-solid fa-file-pdf"></i> Calculus-III-Syllabus.pdf</div>
+                                    <a href="#" class="launch-link">Launch Copilot Workspace <i class="fa-solid fa-chevron-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Next Generation Empty State -->
+                        <div class="extraction-col">
+                            <div class="col-header">
+                                <span class="dot gray"></span> NEXT GENERATION
+                            </div>
+                            
+                            <div class="waiting-card">
+                                <i class="fa-solid fa-wand-magic-sparkles waiting-icon"></i>
+                                <h3>Waiting for Copilot generation...</h3>
+                                <p>Upload a syllabus, assignment brief, or lecture slide to instantly extract smart study tasks.</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Footer Status Bar -->
+                <div class="status-bar">
+                    <i class="fa-solid fa-server"></i>
+                    <span>Copilot Engine status: <span class="cyan-text">Operational</span> — Ready for high-speed document indexing and semantic decomposition.</span>
+                </div>
+                
+            </div>
+        </main>
+    </div>
+    
+    <!-- Chat Modal -->
+    <div class="chat-modal-overlay" id="chat-modal">
+        <div class="chat-modal-container glass-panel">
+            <div class="chat-header">
+                <h3><i class="fa-solid fa-comments"></i> Chat with Document</h3>
+                <button class="icon-btn close-chat" id="close-chat"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-message ai-message">
+                    <div class="message-bubble">Hello! Ask me any questions about this document.</div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type your question here..." autocomplete="off">
+                <button class="send-btn" id="send-chat"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
