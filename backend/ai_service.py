@@ -1,15 +1,33 @@
 import os
+import time
 import pymupdf  # Replaced fitz with modern pymupdf
 import json
 import requests
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 # Load environment variables from .env file
 load_dotenv()
+
+# AI providers, tried in this order: Groq first (fast, generous free tier), then Gemini as backup.
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "openai/gpt-oss-120b"  # check what your key can use: GET https://api.groq.com/openai/v1/models
+GEMINI_MODEL = "gemini-3.5-flash"
+
+# Errors that usually mean "busy, try again soon", so they are worth a retry.
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+ATTEMPTS_PER_PROVIDER = 2   # first try + one retry
+BACKOFF_SECONDS = 2         # wait before the retry
+TIMEOUT_SECONDS = 60
+
+BUSY_MESSAGE = "Copilot is busy right now. Please try again in a minute."
+
+
+class ProviderError(Exception):
+    """One AI provider failed (busy, timed out, bad key or unreadable answer)."""
 
 class ParsedDocument(BaseModel):
     model_config = {"from_attributes": True} # Enable SQLAlchemy ORM mapping
@@ -42,13 +60,126 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
             text += page.get_text() + "\n"
     return text
 
-def parse_assignment_with_gemini(pdf_bytes: bytes) -> List[ParsedDocument]:
+
+
+# ---------- Talking to the AI providers ----------
+
+def _post_with_retry(name: str, url: str, payload: dict, headers: dict) -> dict:
+    """POSTs to one provider. Retries once if it is busy or slow, then gives up with ProviderError."""
+    for attempt in range(1, ATTEMPTS_PER_PROVIDER + 1):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=TIMEOUT_SECONDS)
+        except (requests.Timeout, requests.ConnectionError):
+            reason = "timed out or could not connect"
+        else:
+            if response.status_code == 200:
+                return response.json()
+            if response.status_code not in RETRYABLE_STATUS:
+                # e.g. 401 bad key or 413 document too long: retrying won't help
+                raise ProviderError(f"{name} returned {response.status_code}: {response.text[:200]}")
+            reason = f"returned {response.status_code}"
+
+        print(f"[AI] {name} {reason} (attempt {attempt}/{ATTEMPTS_PER_PROVIDER})")
+        if attempt < ATTEMPTS_PER_PROVIDER:
+            time.sleep(BACKOFF_SECONDS * attempt)
+
+    raise ProviderError(f"{name} is busy")
+
+
+def _ask_groq(prompt: str, want_json: bool) -> str:
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise ProviderError("GROQ_API_KEY is not set")
+
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+    }
+    if want_json:
+        payload["response_format"] = {"type": "json_object"}
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    data = _post_with_retry("Groq", GROQ_URL, payload, headers)
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as e:
+        raise ProviderError(f"Groq answer had an unexpected shape: {e}")
+
+
+def _ask_gemini(prompt: str, json_schema: Optional[dict]) -> str:
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ProviderError("GEMINI_API_KEY is not set")
+
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    if json_schema:
+        payload["generationConfig"] = {
+            "responseMimeType": "application/json",
+            "responseSchema": json_schema,
+            "temperature": 0.1,
+        }
+
+    # The key goes in a header, not the URL, so it never shows up in error messages or logs
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+    headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
+    data = _post_with_retry("Gemini", url, payload, headers)
+    try:
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError) as e:
+        raise ProviderError(f"Gemini answer had an unexpected shape: {e}")
+
+
+def _ask_ai(prompt: str, read_answer: Callable[[str], object], gemini_schema: Optional[dict] = None):
     """
-    Extracts text from the PDF and uses Gemini to parse it into structured data via direct REST API call.
-    Gracefully handles API errors and injects mock data on 503s.
+    Asks Groq first, then Gemini. read_answer turns the raw text into what we need;
+    if it fails (for example broken JSON), we also move on to the next provider.
+    If every provider fails, the user gets a friendly "busy" message and nothing is saved.
     """
+    want_json = gemini_schema is not None
+    providers = [
+        ("Groq", lambda: _ask_groq(prompt, want_json)),
+        ("Gemini", lambda: _ask_gemini(prompt, gemini_schema)),
+    ]
+    for name, ask in providers:
+        try:
+            result = read_answer(ask())
+            print(f"[AI] Answered by {name}")
+            return result
+        except ProviderError as e:
+            print(f"[AI] {name} failed: {e}")
+        except (ValueError, TypeError) as e:  # json.JSONDecodeError and pydantic errors are ValueErrors
+            print(f"[AI] {name} gave an answer we could not read: {e}")
+
+    raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
+
+
+# ---------- What the app uses ----------
+
+DOCUMENT_FIELDS = {
+    "document_type": {"type": "string", "enum": ["Assignment", "Lecture Note"]},
+    "course_name": {"type": "string"},
+    "title": {"type": "string"},
+    "deadline": {"type": "string", "description": "ISO 8601 formatted datetime string"},
+    "details": {"type": "string"},
+    "task_type": {"type": "string"},
+    "estimated_hours": {"type": "integer"},
+    "key_concepts": {"type": "array", "items": {"type": "string"}},
+    "milestones": {"type": "array", "items": {"type": "string"}},
+    "urgency_score": {"type": "integer"},
+}
+REQUIRED_FIELDS = ["document_type", "course_name", "title", "details", "key_concepts", "milestones", "urgency_score"]
+
+GEMINI_DOCUMENTS_SCHEMA = {
+    "type": "array",
+    "items": {"type": "object", "properties": DOCUMENT_FIELDS, "required": REQUIRED_FIELDS},
+}
+
+
+def parse_assignment(pdf_bytes: bytes) -> List[ParsedDocument]:
+    """Extracts text from the PDF and asks the AI to turn it into structured tasks."""
     pdf_text = extract_text_from_pdf(pdf_bytes)
-    
+
     if not pdf_text.strip():
         raise HTTPException(status_code=400, detail="No text could be extracted from the PDF.")
 
@@ -62,139 +193,51 @@ def parse_assignment_with_gemini(pdf_bytes: bytes) -> List[ParsedDocument]:
         "5. Provide an urgency_score from 1-10 based on the deadline and estimated hours.\n"
         "6. Provide 3-5 crucial key concepts to study.\n"
         "If there are multiple assignments or distinct topics, return them as a list. Otherwise, return a list with one item.\n"
+        "Only give a deadline if a due date is actually written in the document. Never guess one.\n"
+        "If deadline, task_type or estimated_hours do not apply, use null. Always give urgency_score as a number.\n"
+        'Reply with JSON only, shaped like {"documents": [ ... ]}, where each item has these fields '
+        f"(required: {', '.join(REQUIRED_FIELDS)}):\n{json.dumps(DOCUMENT_FIELDS)}\n\n"
         f"Text to analyze:\n\n{pdf_text}"
     )
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set.")
+    def read_documents(answer: str) -> List[ParsedDocument]:
+        parsed = json.loads(answer)
+        if isinstance(parsed, dict):  # Groq wraps the list: {"documents": [...]}
+            parsed = parsed.get("documents", [])
+        if not isinstance(parsed, list) or not parsed:
+            raise ValueError("no documents in the answer")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
+        docs = []
+        for item in parsed:
+            # Some models write "" instead of null for "no deadline"; treat both as empty
+            for field in ("deadline", "task_type", "estimated_hours"):
+                if item.get(field) == "":
+                    item[field] = None
+            # A lecture note is something to study, not something to hand in,
+            # so drop any deadline or task the AI invented for it
+            if item.get("document_type") == "Lecture Note":
+                item.update(deadline=None, task_type=None, estimated_hours=None, milestones=[])
+            if item.get("urgency_score") is None:
+                item["urgency_score"] = 1
+            doc = ParsedDocument(**item)
+            doc.raw_text = pdf_text
+            docs.append(doc)
+        return docs
 
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": prompt}
-                ]
-            }
-        ],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseSchema": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "document_type": {"type": "string", "enum": ["Assignment", "Lecture Note"]},
-                        "course_name": {"type": "string"},
-                        "title": {"type": "string"},
-                        "deadline": {"type": "string", "description": "ISO 8601 formatted datetime string"},
-                        "details": {"type": "string"},
-                        "task_type": {"type": "string"},
-                        "estimated_hours": {"type": "integer"},
-                        "key_concepts": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        },
-                        "milestones": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        },
-                        "urgency_score": {"type": "integer"}
-                    },
-                    "required": ["document_type", "course_name", "title", "details", "key_concepts", "milestones", "urgency_score"]
-                }
-            },
-            "temperature": 0.1
-        }
-    }
+    return _ask_ai(prompt, read_documents, gemini_schema=GEMINI_DOCUMENTS_SCHEMA)
 
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    response = requests.post(url, json=payload, headers=headers)
-    
-    # 1. Handle 503 High Demand Error with Mock Data
-    if response.status_code == 503:
-        print("Gemini API returned 503. Injecting fallback mock data for UI testing.")
-        return [
-            ParsedDocument(
-                document_type="Assignment",
-                course_name="System Architecture 401",
-                title="Mock Data: API Integration Assignment",
-                deadline=datetime.now() + timedelta(days=2),
-                details="This is mock data dynamically injected because the Gemini API returned a 503 High Demand error. The actual PDF was not parsed.",
-                task_type="Coding",
-                estimated_hours=6,
-                key_concepts=["Error Handling", "REST APIs", "Graceful Degradation"],
-                milestones=[
-                    "Implement a fallback mock response for 503 errors.",
-                    "Verify the frontend UI renders the mock data correctly.",
-                    "Test again when the Gemini API is back online."
-                ],
-                urgency_score=9,
-                raw_text=pdf_text
-            )
-        ]
-        
-    # 2. Handle any other non-200 Errors gracefully using FastAPI HTTPException
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=502, 
-            detail=f"Gemini API upstream error ({response.status_code}): {response.text}"
-        )
-
-    try:
-        data = response.json()
-        response_text = data['candidates'][0]['content']['parts'][0]['text']
-        parsed_json = json.loads(response_text)
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        raise HTTPException(
-            status_code=502, 
-            detail=f"Failed to parse response from Gemini: {str(e)}"
-        )
-
-    # Return a list of Pydantic ParsedDocument objects, attaching the raw_text to each
-    docs = []
-    for item in parsed_json:
-        doc = ParsedDocument(**item)
-        doc.raw_text = pdf_text
-        docs.append(doc)
-        
-    return docs
 
 def chat_with_document(raw_text: str, question: str) -> str:
-    """Sends the raw document text and a user question to Gemini."""
+    """Sends the raw document text and a user question to the AI."""
     prompt = (
         f"Based on the following document text, please answer the user's question.\n\n"
         f"Document:\n{raw_text}\n\n"
         f"Question:\n{question}"
     )
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set.")
+    def read_text(answer: str) -> str:
+        if not answer.strip():
+            raise ValueError("empty answer")
+        return answer
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
-
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-    
-    headers = {"Content-Type": "application/json"}
-    
-    response = requests.post(url, json=payload, headers=headers)
-    
-    if response.status_code == 503:
-        return "The AI is currently experiencing high demand. This is a mock answer: The document discusses key foundational topics related to your question, but I cannot process the exact answer right now."
-        
-    if response.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Gemini API Error: {response.text}")
-        
-    try:
-        data = response.json()
-        return data['candidates'][0]['content']['parts'][0]['text']
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
+    return _ask_ai(prompt, read_text)

@@ -53,8 +53,8 @@ async def parse_assignment(file: UploadFile = File(...), db: Session = Depends(g
         # Read the file bytes
         file_bytes = await file.read()
         
-        # Parse the assignment using our AI service (or get mock data if 503)
-        assignments = ai_service.parse_assignment_with_gemini(file_bytes)
+        # Parse the assignment with the AI (Groq first, Gemini as backup)
+        assignments = ai_service.parse_assignment(file_bytes)
         
         # Save each parsed document to the database
         for item in assignments:

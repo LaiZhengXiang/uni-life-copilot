@@ -129,10 +129,24 @@ document.addEventListener('DOMContentLoaded', () => {
         currentChatTaskId = null;
     });
 
-    function appendChatMessage(text, isUser = false) {
+    // Turns chat text into safe HTML: escapes tags like <tr> so they show as text,
+    // then renders the simple markdown the AI uses (**bold**, `code`, bullet lists)
+    function formatChatText(text) {
+        const escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        return escaped
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/^\s*[*-]\s+/gm, '• ')
+            .replace(/\n/g, '<br>');
+    }
+
+    function appendChatMessage(text, isUser = false, isHtml = false) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `chat-message ${isUser ? 'user-message' : 'ai-message'}`;
-        msgDiv.innerHTML = `<div class="message-bubble">${text}</div>`;
+        msgDiv.innerHTML = `<div class="message-bubble">${isHtml ? text : formatChatText(text)}</div>`;
         chatMessages.appendChild(msgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         return msgDiv;
@@ -145,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appendChatMessage(text, true);
         chatInput.value = '';
 
-        const typingMsg = appendChatMessage('<i class="fa-solid fa-spinner fa-spin"></i> Analyzing document...', false);
+        const typingMsg = appendChatMessage('<i class="fa-solid fa-spinner fa-spin"></i> Analyzing document...', false, true);
 
         try {
             const response = await fetch('http://127.0.0.1:8000/api/chat', {
@@ -227,7 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const errorData = await response.json();
                     errorMessage = errorData.detail || errorMessage;
                 } catch(e) {}
-                throw new Error(errorMessage);
+                const err = new Error(errorMessage);
+                err.busy = response.status === 503; // every AI provider was busy
+                throw err;
             }
             
             showToast('Document parsed successfully!');
@@ -247,7 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fa-solid fa-triangle-exclamation" style="color: var(--text-red);"></i>
                             <div class="deadline-text">
                                 <span class="deadline-label">TROUBLESHOOTING</span>
-                                <span class="deadline-value">Ensure the FastAPI server is running and dependencies are installed.</span>
+                                <span class="deadline-value">${error.busy
+                                    ? 'The AI is overloaded. Nothing was saved, so just upload the PDF again in a minute.'
+                                    : 'Ensure the FastAPI server is running and dependencies are installed.'}</span>
                             </div>
                         </div>
                     </div>
