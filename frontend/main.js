@@ -196,6 +196,61 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendChatMessage();
     });
 
+    // Ask Copilot: the study-secretary agent
+    const agentMessages = document.getElementById('agent-messages');
+    const agentInput = document.getElementById('agent-input');
+    const agentSendBtn = document.getElementById('agent-send');
+
+    function appendAgentMessage(html, isUser = false) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-message ${isUser ? 'user-message' : 'ai-message'}`;
+        msgDiv.innerHTML = `<div class="message-bubble">${html}</div>`;
+        agentMessages.appendChild(msgDiv);
+        agentMessages.scrollTop = agentMessages.scrollHeight;
+        return msgDiv;
+    }
+
+    // A small badge per tool the agent used, so you can see it "doing" things
+    function appendToolBadge(tool) {
+        const args = Object.entries(tool.args).map(([k, v]) => `${k}=${v}`).join(', ');
+        const badge = document.createElement('div');
+        badge.className = 'tool-badge';
+        badge.textContent = `🔧 used ${tool.name}(${args})`;
+        agentMessages.appendChild(badge);
+    }
+
+    async function askAgent() {
+        const text = agentInput.value.trim();
+        if (!text) return;
+
+        appendAgentMessage(formatChatText(text), true);
+        agentInput.value = '';
+        const thinking = appendAgentMessage('<i class="fa-solid fa-spinner fa-spin"></i> Thinking...');
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text })
+            });
+            const data = await response.json().catch(() => ({}));
+            thinking.remove();
+            if (!response.ok) throw new Error(data.detail || 'Failed to get an answer.');
+
+            data.tools_used.forEach(appendToolBadge);
+            appendAgentMessage(formatChatText(data.answer));
+        } catch (error) {
+            console.error(error);
+            thinking.remove();
+            appendAgentMessage(formatChatText(`⚠️ Error: ${error.message}`));
+        }
+    }
+
+    agentSendBtn.addEventListener('click', askAgent);
+    agentInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') askAgent();
+    });
+
     // Fetch API Functions
     async function loadExistingTasks() {
         try {

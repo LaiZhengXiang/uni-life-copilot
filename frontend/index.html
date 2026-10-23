@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -52,6 +52,21 @@
                         <p>Or browse files from your computer (Max size 32MB)</p>
                         <button class="browse-btn" id="browse-btn"><i class="fa-solid fa-paperclip"></i> Browse Files</button>
                         <input type="file" id="file-input" accept="application/pdf" hidden>
+                    </div>
+                </div>
+
+                <!-- Ask Copilot: the study-secretary agent (uses tools to read your real tasks) -->
+                <div class="glass-panel agent-panel">
+                    <h2><i class="fa-solid fa-robot"></i> Ask Copilot</h2>
+                    <p class="panel-desc">Your study secretary. It looks up your real deadlines before answering.</p>
+                    <div class="agent-messages" id="agent-messages">
+                        <div class="chat-message ai-message">
+                            <div class="message-bubble">Hi! Try asking: "What's due this week?"</div>
+                        </div>
+                    </div>
+                    <div class="agent-input-area chat-input-area">
+                        <input type="text" id="agent-input" placeholder="Ask about your deadlines..." autocomplete="off">
+                        <button class="send-btn" id="agent-send"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
                 </div>
 
@@ -180,6 +195,6 @@
         </div>
     </div>
 
-    <script src="main.js"></script>
+    <script src="main.js?v=2"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 import ai_service
+import agent
 import models
 from database import engine, SessionLocal
 
@@ -109,3 +110,10 @@ async def chat_document(req: ai_service.ChatRequest, db: Session = Depends(get_d
 async def sync_calendar():
     """Endpoint for syncing to Google Calendar (To be implemented)"""
     return {"message": "Google Calendar sync endpoint - Not implemented yet"}
+
+@app.post("/api/agent", response_model=agent.AgentResponse)
+async def ask_agent(req: agent.AgentRequest):
+    """Ask the study-secretary agent. It can use tools (like get_deadlines) to look up your real data."""
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Please type a question.")
+    return agent.run_agent(req.message)
