@@ -12,13 +12,25 @@ from typing import Callable, List, Optional
 # Load environment variables from .env file
 load_dotenv()
 
-# AI providers, tried in this order: Groq first (fast, generous free tier), then Gemini as backup.
+# AI providers, tried in this order. Groq's free limit (8,000 tokens a minute) is counted
+# per model, so a second Groq model is a fresh quota with the same key.
+# Check which models your key can use: GET https://api.groq.com/openai/v1/models
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "openai/gpt-oss-120b"  # check what your key can use: GET https://api.groq.com/openai/v1/models
+GROQ_MODELS = [
+    # (model, extra settings) - both settings keep the model's "thinking" short and out of the answer
+    ("openai/gpt-oss-120b", {"reasoning_effort": "low"}),
+    ("qwen/qwen3.8-27b", {"reasoning_format": "hidden"}),
+]
 GEMINI_MODEL = "gemini-3.5-flash"
 
+# Development switch: put USE_FAKE_AI=true in backend/.env to get instant sample answers
+# with zero API calls (no rate limits while you work on the UI). Restart the backend after changing it.
+USE_FAKE_AI = os.environ.get("USE_FAKE_AI", "").lower() == "true"
+
 # Errors that usually mean "busy, try again soon", so they are worth a retry.
-RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+# 429 is not here: it means our per-minute quota is used up, so waiting 2 seconds won't help.
+# We skip straight to the next model instead.
+RETRYABLE_STATUS = {500, 502, 503, 504}
 ATTEMPTS_PER_PROVIDER = 2   # first try + one retry
 BACKOFF_SECONDS = 2         # wait before the retry
 TIMEOUT_SECONDS = 60
@@ -74,6 +86,8 @@ def _post_with_retry(name: str, url: str, payload: dict, headers: dict) -> dict:
         else:
             if response.status_code == 200:
                 return response.json()
+            if response.status_code == 429:
+                raise ProviderError(f"{name} rate limit reached (429), trying the next model")
             if response.status_code not in RETRYABLE_STATUS:
                 # e.g. 401 bad key or 413 document too long: retrying won't help
                 raise ProviderError(f"{name} returned {response.status_code}: {response.text[:200]}")
@@ -86,21 +100,22 @@ def _post_with_retry(name: str, url: str, payload: dict, headers: dict) -> dict:
     raise ProviderError(f"{name} is busy")
 
 
-def _ask_groq(prompt: str, want_json: bool) -> str:
+def _ask_groq(prompt: str, want_json: bool, model: str, extra: dict) -> str:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise ProviderError("GROQ_API_KEY is not set")
 
     payload = {
-        "model": GROQ_MODEL,
+        "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.1,
+        **extra,
     }
     if want_json:
         payload["response_format"] = {"type": "json_object"}
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    data = _post_with_retry("Groq", GROQ_URL, payload, headers)
+    data = _post_with_retry(f"Groq {model}", GROQ_URL, payload, headers)
     try:
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError) as e:
@@ -132,15 +147,22 @@ def _ask_gemini(prompt: str, json_schema: Optional[dict]) -> str:
 
 def _ask_ai(prompt: str, read_answer: Callable[[str], object], gemini_schema: Optional[dict] = None):
     """
-    Asks Groq first, then Gemini. read_answer turns the raw text into what we need;
+    Asks each Groq model, then Gemini. read_answer turns the raw text into what we need;
     if it fails (for example broken JSON), we also move on to the next provider.
     If every provider fails, the user gets a friendly "busy" message and nothing is saved.
     """
     want_json = gemini_schema is not None
+    if USE_FAKE_AI:
+        print("[AI] Fake AI mode: no API call made")
+        return read_answer(FAKE_DOCUMENTS_JSON if want_json else FAKE_CHAT_ANSWER)
+
     providers = [
-        ("Groq", lambda: _ask_groq(prompt, want_json)),
-        ("Gemini", lambda: _ask_gemini(prompt, gemini_schema)),
+        # model=model, extra=extra freezes this loop's values inside each lambda
+        (f"Groq {model}", lambda model=model, extra=extra: _ask_groq(prompt, want_json, model, extra))
+        for model, extra in GROQ_MODELS
     ]
+    providers.append(("Gemini", lambda: _ask_gemini(prompt, gemini_schema)))
+
     for name, ask in providers:
         try:
             result = read_answer(ask())
@@ -152,6 +174,22 @@ def _ask_ai(prompt: str, read_answer: Callable[[str], object], gemini_schema: Op
             print(f"[AI] {name} gave an answer we could not read: {e}")
 
     raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
+
+
+# Sample answers for Fake AI mode. The [FAKE AI] label makes them easy to spot and delete.
+FAKE_DOCUMENTS_JSON = json.dumps({"documents": [{
+    "document_type": "Assignment",
+    "course_name": "[FAKE AI] Sample Course",
+    "title": "[FAKE AI] Sample assignment - delete me",
+    "deadline": None,
+    "details": "Fake AI mode is on (USE_FAKE_AI=true in backend/.env), so no AI read this PDF.",
+    "task_type": "Report",
+    "estimated_hours": 3,
+    "key_concepts": ["Fake AI mode", "UI testing"],
+    "milestones": ["Check the card looks right", "Turn Fake AI mode off", "Upload again for a real answer"],
+    "urgency_score": 5,
+}]})
+FAKE_CHAT_ANSWER = "**[FAKE AI]** This is a sample answer. Fake AI mode is on, so no AI read your question."
 
 
 # ---------- What the app uses ----------
