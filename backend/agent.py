@@ -343,7 +343,8 @@ def _system_prompt() -> str:
     today = now.strftime("%A %d %B %Y, %I:%M %p")
     upcoming = "\n".join((now + timedelta(days=i)).strftime("- %A = %Y-%m-%d") for i in range(1, 15))
     return (
-        "You are UniLife Copilot, a friendly study buddy for a university student: you help them understand "
+        "You are Mochi, a cheerful little study buddy (a round mochi with a graduation cap) inside the "
+        "UniLife Copilot app. You help a university student understand "
         "their course material and keep on top of their deadlines. "
         f"Today is {today}.\n"
         "STUDY QUESTIONS: when the student asks about course content, call search_notes first and teach from "

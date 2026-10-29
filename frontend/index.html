@@ -3,165 +3,205 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uni-Life Copilot</title>
-    <!-- Use Inter font to match the mockup -->
+    <title>UniLife Copilot</title>
+    <!-- Fredoka (round and friendly) for headings, Nunito (soft but easy to read) for everything else -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=8">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Top Navigation -->
-        <nav class="navbar">
-            <div class="logo">
-                <div class="logo-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                <span>Uni-Life Copilot</span>
-            </div>
-            
-            <div class="nav-links">
-                <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
-                <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" download>
-                    <i class="fa-regular fa-calendar-plus"></i> Add deadlines to my calendar
-                </a>
-            </div>
+    <a class="skip-link" href="#agent-input">Skip to the chat</a>
 
-            <div class="user-profile">
-                <!-- Bell: what's due in the next 3 days -->
-                <div class="bell-wrapper">
-                    <button class="icon-btn" id="bell-btn" title="Due soon">
-                        <i class="fa-regular fa-bell"></i>
-                        <span class="bell-count" id="bell-count" hidden></span>
-                    </button>
-                    <div class="bell-dropdown" id="bell-dropdown" hidden></div>
-                </div>
-                <div class="avatar-container">
-                    <img src="https://ui-avatars.com/api/?name=Zheng+Xiang&background=random" alt="User Avatar" class="avatar">
-                    <span class="user-name">Zheng Xiang</span>
-                </div>
-            </div>
-        </nav>
+    <!-- A small, still Mochi we reuse in the logo (the big one in the chat is below and can move) -->
+    <svg width="0" height="0" class="svg-defs" aria-hidden="true" focusable="false">
+        <symbol id="mochi-mini" viewBox="0 0 140 130">
+            <path fill="#FFE1D3" d="M70 30 C102 30 120 54 120 82 C120 106 99 116 70 116 C41 116 20 106 20 82 C20 54 38 30 70 30 Z"/>
+            <ellipse fill="#FFB4A2" cx="40" cy="90" rx="9" ry="5.5"/>
+            <ellipse fill="#FFB4A2" cx="100" cy="90" rx="9" ry="5.5"/>
+            <ellipse fill="#2B2340" cx="54" cy="78" rx="6" ry="7.5"/>
+            <ellipse fill="#2B2340" cx="86" cy="78" rx="6" ry="7.5"/>
+            <path fill="none" stroke="#2B2340" stroke-width="3.5" stroke-linecap="round" d="M63 92 Q70 99 77 92"/>
+            <g transform="rotate(-10 70 28)">
+                <path fill="#2B2340" d="M52 30 L52 38 Q70 46 88 38 L88 30 Z"/>
+                <path fill="#3A2F57" d="M70 14 L104 27 L70 40 L36 27 Z"/>
+                <path fill="none" stroke="#FF8A4C" stroke-width="2.5" d="M70 27 L98 30 L98 46"/>
+                <circle fill="#FF8A4C" cx="98" cy="48" r="4"/>
+            </g>
+        </symbol>
+    </svg>
 
-        <!-- Main Workspace -->
-        <main class="main-content">
-            <!-- Left Column -->
-            <div class="left-col">
-                
-                <!-- Upload Panel -->
-                <div class="glass-panel parser-panel">
-                    <h2>PDF Document Parser</h2>
-                    <p class="panel-desc">Upload lecture notes and assignment briefs. Copilot reads them, so you can ask questions about them later.</p>
-                    
-                    <div class="drop-zone" id="drop-zone">
-                        <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                        <h3>Drop Assignment or Lecture Note PDF here</h3>
-                        <p>Or browse PDF files from your computer</p>
-                        <button class="browse-btn" id="browse-btn"><i class="fa-solid fa-paperclip"></i> Browse Files</button>
-                        <input type="file" id="file-input" accept="application/pdf" hidden>
-                    </div>
-                </div>
+    <!-- Top bar -->
+    <header class="topbar">
+        <a class="brand" href="#" aria-label="UniLife Copilot home">
+            <svg class="brand-mochi" aria-hidden="true"><use href="#mochi-mini"/></svg>
+            <span class="brand-name">UniLife <strong>Copilot</strong></span>
+        </a>
 
-                <!-- Ask Copilot: the study-secretary agent (uses tools to read your real tasks) -->
-                <div class="glass-panel agent-panel">
-                    <div class="agent-header">
-                        <h2><i class="fa-solid fa-robot"></i> Ask Copilot</h2>
-                        <button class="new-chat-btn" id="new-chat" title="Start a new chat (Copilot keeps what it remembers about you)">
-                            <i class="fa-solid fa-plus"></i> New chat
-                        </button>
-                    </div>
-                    <p class="panel-desc">Your study buddy. Ask about your notes or your deadlines; it searches your PDFs and remembers this chat.</p>
-                    <div class="agent-messages" id="agent-messages"></div>
-                    <div class="agent-input-area chat-input-area">
-                        <input type="text" id="agent-input" placeholder="Ask about your notes or deadlines..." autocomplete="off">
-                        <button class="send-btn" id="agent-send"><i class="fa-solid fa-paper-plane"></i></button>
-                    </div>
-                    <!-- Long-term memory: what Copilot remembers about you, with a button to forget each one -->
-                    <details class="memory-box" id="memory-box">
-                        <summary><i class="fa-solid fa-brain"></i> Copilot remembers (<span id="memory-count">0</span>)</summary>
-                        <ul id="memory-list"></ul>
-                    </details>
-                </div>
+        <div class="topbar-actions">
+            <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
+            <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" class="btn btn-ghost" download
+               aria-label="Add deadlines to my calendar">
+                <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i>
+                <span class="hide-small">Add to calendar</span>
+            </a>
 
-                <!-- Features Info Panel -->
-                <div class="glass-panel flow-panel">
-                    <h3 class="panel-subtitle">HOW COPILOT ACCELERATES YOUR FLOW</h3>
-                    <div class="feature-list">
-                        <div class="feature-item">
-                            <div class="feature-icon"><i class="fa-solid fa-calendar-check"></i></div>
-                            <div class="feature-text">
-                                <h4>PDF to task board</h4>
-                                <p>Upload an assignment brief and get its deadline, steps and key concepts as a task card.</p>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="feature-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
-                            <div class="feature-text">
-                                <h4>A study buddy that knows your notes</h4>
-                                <p>Ask Copilot to explain a topic and it answers from your own lecture notes, showing which PDF it used.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+            <!-- Bell: what's due in the next 3 days -->
+            <div class="bell-wrapper">
+                <button class="icon-btn" id="bell-btn" aria-label="Due in the next 3 days" aria-haspopup="true">
+                    <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                    <span class="bell-count" id="bell-count" hidden></span>
+                </button>
+                <div class="bell-dropdown" id="bell-dropdown" hidden></div>
             </div>
 
-            <!-- Right Column -->
-            <div class="right-col">
-                
-                <!-- Main Task Board -->
-                <div class="glass-panel board-panel">
-                    <div class="board-header">
-                        <div class="board-title-area">
-                            <h2>Your Task Board</h2>
-                            <p>Tick off steps as you go. Finished tasks move to the bottom.</p>
-                        </div>
-                        <div class="view-toggles">
-                            <button class="toggle-btn active">Grid View</button>
-                            <button class="toggle-btn">List View</button>
-                        </div>
-                    </div>
-
-                    <div class="cards-layout">
-                        
-                        <!-- Filled in by main.js with your real tasks -->
-                        <div class="waiting-card" style="grid-column: 1 / -1;">
-                            <i class="fa-solid fa-spinner fa-spin waiting-icon"></i>
-                            <h3>Loading your tasks...</h3>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- Footer Status Bar -->
-                <div class="status-bar">
-                    <i class="fa-solid fa-server"></i>
-                    <span>Copilot status: <span class="cyan-text">Ready</span> — Upload a PDF or ask Copilot what's due.</span>
-                </div>
-                
+            <div class="user-chip">
+                <span class="avatar" aria-hidden="true">ZX</span>
+                <span class="hide-small">Zheng Xiang</span>
             </div>
-        </main>
-    </div>
-    
-    <!-- Chat Modal -->
+        </div>
+    </header>
+
+    <main class="layout">
+        <!-- ===== Mochi, the study-buddy agent ===== -->
+        <section class="card buddy" aria-labelledby="buddy-title">
+            <div class="buddy-hero">
+                <!-- data-state: idle / thinking / happy / oops (main.js changes it) -->
+                <div class="mochi" id="mochi" data-state="idle" aria-hidden="true">
+                    <svg class="mochi-svg" viewBox="0 0 140 130">
+                        <ellipse class="mochi-shadow" cx="70" cy="122" rx="36" ry="5"/>
+                        <g class="mochi-body">
+                            <path class="mochi-skin" d="M70 30 C102 30 120 54 120 82 C120 106 99 116 70 116 C41 116 20 106 20 82 C20 54 38 30 70 30 Z"/>
+                            <ellipse class="mochi-shine" cx="47" cy="52" rx="10" ry="5.5" transform="rotate(-28 47 52)"/>
+                            <ellipse class="mochi-blush" cx="40" cy="90" rx="9" ry="5.5"/>
+                            <ellipse class="mochi-blush" cx="100" cy="90" rx="9" ry="5.5"/>
+                            <g class="mochi-eyes">
+                                <g class="mochi-eye">
+                                    <ellipse cx="54" cy="78" rx="6" ry="7.5"/>
+                                    <circle class="mochi-sparkle" cx="56.5" cy="74.5" r="2.2"/>
+                                </g>
+                                <g class="mochi-eye">
+                                    <ellipse cx="86" cy="78" rx="6" ry="7.5"/>
+                                    <circle class="mochi-sparkle" cx="88.5" cy="74.5" r="2.2"/>
+                                </g>
+                            </g>
+                            <g class="mochi-eyes-happy">
+                                <path d="M47 81 Q54 71 61 81"/>
+                                <path d="M79 81 Q86 71 93 81"/>
+                            </g>
+                            <path class="mochi-mouth mouth-smile" d="M63 92 Q70 99 77 92"/>
+                            <path class="mochi-mouth mouth-open" d="M62 91 Q70 104 78 91 Z"/>
+                            <ellipse class="mochi-mouth mouth-o" cx="70" cy="95" rx="3.5" ry="4"/>
+                            <g class="mochi-cap" transform="rotate(-10 70 28)">
+                                <path class="cap-base" d="M52 30 L52 38 Q70 46 88 38 L88 30 Z"/>
+                                <path class="cap-top" d="M70 14 L104 27 L70 40 L36 27 Z"/>
+                                <circle class="cap-button" cx="70" cy="27" r="2.5"/>
+                                <g class="cap-tassel">
+                                    <path class="cap-string" d="M70 27 L98 30 L98 46"/>
+                                    <circle class="cap-ball" cx="98" cy="48" r="4"/>
+                                </g>
+                            </g>
+                        </g>
+                    </svg>
+                    <div class="mochi-thought"><span></span><span></span><span></span></div>
+                </div>
+
+                <div class="buddy-intro">
+                    <h1 id="buddy-title">Mochi <span class="buddy-role">your study buddy</span></h1>
+                    <p class="speech" id="mochi-says">Hi! Let me check your day...</p>
+                </div>
+
+                <button class="btn btn-soft new-chat-btn" id="new-chat"
+                        title="Start a new chat (Mochi keeps what it remembers about you)">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i> New chat
+                </button>
+            </div>
+
+            <div class="agent-messages" id="agent-messages" aria-live="polite"></div>
+
+            <!-- Quick ideas: click one to ask it -->
+            <div class="suggestions" aria-label="Ideas to ask">
+                <button class="suggestion">What's due this week?</button>
+                <button class="suggestion">Quiz me on my notes</button>
+                <button class="suggestion">Explain GET vs POST from my notes</button>
+            </div>
+
+            <div class="agent-input-area composer">
+                <label class="visually-hidden" for="agent-input">Ask Mochi</label>
+                <input type="text" id="agent-input" placeholder="Ask Mochi about your notes or deadlines..." autocomplete="off">
+                <button class="send-btn" id="agent-send" aria-label="Send">
+                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <!-- Long-term memory: what Mochi remembers about you, with a button to forget each one -->
+            <details class="memory-box" id="memory-box">
+                <summary><i class="fa-solid fa-brain" aria-hidden="true"></i> Mochi remembers (<span id="memory-count">0</span>)</summary>
+                <ul id="memory-list"></ul>
+            </details>
+        </section>
+
+        <!-- ===== Side: upload, tasks, notes ===== -->
+        <aside class="side" aria-label="Your study stuff">
+            <section class="card upload-card" aria-labelledby="upload-title">
+                <h2 id="upload-title" class="visually-hidden">Upload a PDF</h2>
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-icon"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i></div>
+                    <div class="drop-text">
+                        <h3>Drop a PDF here</h3>
+                        <p>Assignment briefs become tasks. Lecture notes go to Mochi's library.</p>
+                    </div>
+                    <button class="btn btn-primary browse-btn" id="browse-btn">Browse</button>
+                    <input type="file" id="file-input" accept="application/pdf" hidden>
+                </div>
+            </section>
+
+            <section class="card list-card" aria-labelledby="tasks-title">
+                <div class="list-header">
+                    <h2 id="tasks-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Your tasks</h2>
+                    <span class="count-pill" id="task-count"></span>
+                </div>
+                <p class="list-hint">Tick off steps as you go. Finished tasks move to the bottom.</p>
+                <div class="cards-layout" id="task-list">
+                    <div class="waiting-card">
+                        <i class="fa-solid fa-spinner fa-spin waiting-icon" aria-hidden="true"></i>
+                        <h3>Loading your tasks...</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card list-card" aria-labelledby="notes-title">
+                <div class="list-header">
+                    <h2 id="notes-title"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Mochi has read</h2>
+                    <span class="count-pill" id="notes-count"></span>
+                </div>
+                <p class="list-hint">Lecture notes Mochi can answer questions about.</p>
+                <ul class="notes-list" id="notes-list"></ul>
+            </section>
+        </aside>
+    </main>
+
+    <!-- Chat with one document -->
     <div class="chat-modal-overlay" id="chat-modal">
-        <div class="chat-modal-container glass-panel">
+        <div class="chat-modal-container" role="dialog" aria-modal="true" aria-labelledby="chat-modal-title">
             <div class="chat-header">
-                <h3><i class="fa-solid fa-comments"></i> Chat with Document</h3>
-                <button class="icon-btn close-chat" id="close-chat"><i class="fa-solid fa-xmark"></i></button>
+                <h3 id="chat-modal-title"><i class="fa-solid fa-comments" aria-hidden="true"></i> Chat with this document</h3>
+                <button class="icon-btn close-chat" id="close-chat" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="chat-messages" id="chat-messages">
                 <div class="chat-message ai-message">
                     <div class="message-bubble">Hello! Ask me any questions about this document.</div>
                 </div>
             </div>
-            <div class="chat-input-area">
+            <div class="chat-input-area composer">
+                <label class="visually-hidden" for="chat-input">Ask about this document</label>
                 <input type="text" id="chat-input" placeholder="Type your question here..." autocomplete="off">
-                <button class="send-btn" id="send-chat"><i class="fa-solid fa-paper-plane"></i></button>
+                <button class="send-btn" id="send-chat" aria-label="Send"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
             </div>
         </div>
     </div>
 
-    <script src="main.js?v=10"></script>
+    <script src="main.js?v=14"></script>
 </body>
 </html>

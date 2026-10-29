@@ -25,7 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let toastTimer = null;
     function showToast(message, seconds = 3) {
         // The <span> keeps the message as one block, so bold words don't break the line
-        toast.innerHTML = `<i class="fa-solid fa-rocket"></i> <span>${message}</span>`;
+        // (the little Mochi face in front comes from the CSS)
+        toast.innerHTML = `<span>${message}</span>`;
         toast.classList.add('show');
         clearTimeout(toastTimer);  // a new toast gets its full time, even if an old one was still showing
         toastTimer = setTimeout(() => toast.classList.remove('show'), seconds * 1000);
@@ -89,7 +90,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     <strong>${escapeHtml(t.title)}</strong>
                     <span>${escapeHtml(t.course_name)} · ${daysLeftText(t.deadline)}</span>
                 </div>`).join('')
-            : '<p>Nothing due soon. 🎉</p>');
+            : '<p>Nothing due soon. Nice!</p>');
+        updateMochiSays(tasks, dueSoon);
+    }
+
+    // ---------- Mochi the mascot ----------
+    const mochi = document.getElementById('mochi');
+    const mochiSays = document.getElementById('mochi-says');
+    let mochiTimer = null;
+
+    // state: 'idle', 'thinking', 'happy' or 'oops'. With seconds, it goes back to idle afterwards.
+    function setMochi(state, seconds) {
+        clearTimeout(mochiTimer);
+        mochi.dataset.state = state;
+        if (seconds) mochiTimer = setTimeout(() => { mochi.dataset.state = 'idle'; }, seconds * 1000);
+    }
+
+    // What Mochi says at the top, based on the time and your deadlines
+    function updateMochiSays(tasks, dueSoon) {
+        const hour = new Date().getHours();
+        const hello = hour < 12 ? 'Good morning!' : hour < 18 ? 'Good afternoon!' : 'Good evening!';
+        const overdue = tasks.filter(t => !t.is_done && t.document_type === 'Assignment'
+            && t.deadline && new Date(t.deadline) < new Date()).length;
+        let line;
+        if (dueSoon.length === 1) line = `"${dueSoon[0].title}" is ${daysLeftText(dueSoon[0].deadline)}.`;
+        else if (dueSoon.length > 1) line = `You have ${dueSoon.length} deadlines in the next 3 days. Let's plan!`;
+        else if (overdue) line = `Nothing due soon, but ${overdue} task${overdue > 1 ? 's are' : ' is'} overdue.`;
+        else line = 'Nothing due soon. Want me to quiz you on your notes?';
+        mochiSays.textContent = `${hello} ${line}`;
     }
 
     bellBtn.addEventListener('click', (e) => {
@@ -98,20 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.bell-wrapper')) bellDropdown.hidden = true;
-    });
-
-    // View Toggles
-    const gridBtn = document.querySelector('.view-toggles button:nth-child(1)');
-    const listBtn = document.querySelector('.view-toggles button:nth-child(2)');
-    gridBtn.addEventListener('click', () => {
-        gridBtn.classList.add('active');
-        listBtn.classList.remove('active');
-        cardsContainer.classList.remove('list-view');
-    });
-    listBtn.addEventListener('click', () => {
-        listBtn.classList.add('active');
-        gridBtn.classList.remove('active');
-        cardsContainer.classList.add('list-view');
     });
 
     // Initial Load
@@ -144,8 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
     fileInput.addEventListener('change', function() { handleFiles(this.files); });
 
-    // Task Card Actions (tick steps, done, edit, chat, delete)
-    cardsContainer.addEventListener('click', async (e) => {
+    // Task and note actions (tick steps, done, edit, chat, delete).
+    // Listening on the whole side column covers both the task list and the notes list.
+    document.querySelector('.side').addEventListener('click', async (e) => {
         const card = e.target.closest('.extraction-col');
         const task = card && tasksById[card.dataset.id];
 
@@ -169,7 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.closest('.done-btn') && task) {
             try {
                 await updateTask(task.id, { is_done: !task.is_done });
-                showToast(task.is_done ? 'Moved back to your to-do list.' : 'Nice work! Task done. 🎉');
+                if (task.is_done) {
+                    showToast('Moved back to your to-do list.');
+                } else {
+                    showToast('Nice work! Task done.');
+                    setMochi('happy', 1.6);  // Mochi cheers
+                }
             } catch (error) {
                 showToast(error.message);
             }
@@ -207,18 +227,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteBtn) {
             const taskId = deleteBtn.getAttribute('data-id');
             if (!taskId) return;
-            const col = deleteBtn.closest('.extraction-col');
+            const col = deleteBtn.closest('.extraction-col, .note-item');
             col.style.opacity = '0.4';
             col.style.pointerEvents = 'none';
             try {
-                if (!confirm('Delete this task?')) {
+                if (!confirm(col.classList.contains('note-item') ? 'Delete this note? Mochi will forget it.' : 'Delete this task?')) {
                     col.style.opacity = '1';
                     col.style.pointerEvents = 'auto';
                     return;
                 }
                 const response = await fetch(`${API}/api/tasks/${taskId}`, { method: 'DELETE' });
                 if (response.ok) {
-                    showToast('Task successfully deleted!');
+                    showToast('Deleted.');
                     await loadExistingTasks();
                 } else {
                     throw new Error("Failed to delete from database");
@@ -271,6 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatInline(line) {
         return line
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            // *italic*: no space right inside the stars, so a "* bullet" isn't mistaken for it
+            .replace(/\*(?=\S)([^*\n]+?)(?<=\S)\*/g, '<em>$1</em>')
             .replace(/`([^`]+)`/g, '<code>$1</code>');
     }
 
@@ -347,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error(error);
             typingMsg.remove();
-            appendChatMessage(`⚠️ Error: ${error.message}`, false);
+            appendChatMessage(`Oops: ${error.message}`, false);
         }
     }
 
@@ -356,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendChatMessage();
     });
 
-    // Ask Copilot: the study-secretary agent
+    // Mochi: the study-buddy agent
     const agentMessages = document.getElementById('agent-messages');
     const agentInput = document.getElementById('agent-input');
     const agentSendBtn = document.getElementById('agent-send');
@@ -380,12 +402,24 @@ document.addEventListener('DOMContentLoaded', () => {
         agentMessages.scrollTop = agentMessages.scrollHeight;
     }
 
-    // A small badge per tool the agent used, so you can see it "doing" things
+    // A small badge per tool the agent used, so you can see it "doing" things:
+    // a friendly label, plus the real tool name in small code text
+    const TOOL_LABELS = {
+        get_deadlines: ['fa-calendar-days', () => 'Checked your deadlines'],
+        search_notes: ['fa-magnifying-glass', (a) => a.query ? `Searched your notes for "${a.query}"` : 'Searched your notes'],
+        add_task: ['fa-square-plus', (a) => `Prepared a new task${a.title ? `: ${a.title}` : ''}`],
+        edit_task: ['fa-pen', () => 'Prepared a change to a task'],
+        remember_preference: ['fa-brain', () => 'Remembered something about you'],
+        forget_preference: ['fa-eraser', () => 'Forgot something'],
+    };
+
     function appendToolBadge(tool) {
-        const args = Object.entries(tool.args).map(([k, v]) => `${k}=${v}`).join(', ');
+        const [icon, label] = TOOL_LABELS[tool.name] || ['fa-wrench', () => 'Used a tool'];
         const badge = document.createElement('div');
         badge.className = 'tool-badge';
-        badge.textContent = `🔧 used ${tool.name}(${args})`;
+        badge.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>
+            <span>${escapeHtml(label(tool.args || {}))}</span>
+            <code>${escapeHtml(tool.name)}</code>`;
         agentMessages.appendChild(badge);
     }
 
@@ -420,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const lines = [['strong', `Change: ${edit.task_title}`]];
         Object.entries(edit.changes).forEach(([field, value]) => {
             if (field === 'deadline') lines.push(['span', `New deadline: ${formatDeadline(value)}`]);
-            else if (field === 'is_done') lines.push(['span', value ? 'Mark as done ✅' : 'Mark as not done']);
+            else if (field === 'is_done') lines.push(['span', value ? 'Mark as done' : 'Mark as not done']);
             else lines.push(['span', `${labels[field] || field}: ${value}`]);
         });
         appendConfirmCard(lines, 'Task updated.', async () => {
@@ -457,11 +491,13 @@ document.addEventListener('DOMContentLoaded', () => {
             buttons.textContent = 'Saving...';
             try {
                 await onSave();
-                buttons.textContent = `✅ ${savedText}`;
+                buttons.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true" style="color: var(--mint)"></i> ${escapeHtml(savedText)}`;
+                setMochi('happy', 1.6);
                 await loadExistingTasks();
             } catch (error) {
                 console.error(error);
-                buttons.textContent = `⚠️ ${error.message}`;
+                buttons.innerHTML = `<i class="fa-solid fa-circle-exclamation" aria-hidden="true" style="color: var(--rose)"></i> ${escapeHtml(error.message)}`;
+                setMochi('oops', 1.5);
             }
         });
     }
@@ -472,7 +508,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appendAgentMessage(formatChatText(text), true);
         agentInput.value = '';
-        const thinking = appendAgentMessage('<i class="fa-solid fa-spinner fa-spin"></i> Thinking...');
+        const thinking = appendAgentMessage('<span class="typing">Mochi is thinking<span>.</span><span>.</span><span>.</span></span>');
+        setMochi('thinking');
 
         try {
             const response = await fetch(`${API}/api/agent`, {
@@ -490,16 +527,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.pending_edit) appendPendingEditCard(data.pending_edit);
             if (data.sources && data.sources.length) appendSources(data.sources);
             if (data.tools_used.some(t => t.name.endsWith('_preference'))) loadMemory();
+            // Mochi looks happy when it prepared something or learned about you
+            const didSomething = data.pending_task || data.pending_edit
+                || data.tools_used.some(t => t.name === 'remember_preference');
+            setMochi(didSomething ? 'happy' : 'idle', didSomething ? 1.6 : 0);
         } catch (error) {
             console.error(error);
             thinking.remove();
-            appendAgentMessage(formatChatText(`⚠️ Error: ${error.message}`));
+            appendAgentMessage(formatChatText(`Oops: ${error.message}`));
+            setMochi('oops', 2);
         }
     }
 
     agentSendBtn.addEventListener('click', askAgent);
     agentInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') askAgent();
+    });
+
+    // Suggestion chips: click one to ask it straight away
+    document.querySelectorAll('.suggestion').forEach(chip => {
+        chip.addEventListener('click', () => {
+            agentInput.value = chip.textContent.trim();
+            askAgent();
+        });
     });
 
     // ---------- Memory ----------
@@ -518,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveId(conversationId);
 
     function showGreeting() {
-        appendAgentMessage('Hi! I\'m your study buddy. Try: "Explain GET vs POST from my notes", "What\'s due this week?" or "Remember that I study best in the morning".');
+        appendAgentMessage('Hi, I\'m Mochi! Ask me about your notes or deadlines, or tell me your study habits and I\'ll remember them. Try an idea below.');
     }
 
     async function loadConversation() {
@@ -544,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         agentInput.focus();
     });
 
-    // Long-term: preferences, shown so you can see (and delete) what Copilot remembers
+    // Long-term: preferences, shown so you can see (and delete) what Mochi remembers
     const memoryList = document.getElementById('memory-list');
     const memoryCount = document.getElementById('memory-count');
 
@@ -559,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>${escapeHtml(p.text)}</span>
                         <button class="forget-btn" data-id="${p.id}" title="Forget this"><i class="fa-solid fa-xmark"></i></button>
                     </li>`).join('')
-                : '<li class="memory-empty">Nothing yet. Tell Copilot your study habits and it will remember them.</li>';
+                : '<li class="memory-empty">Nothing yet. Tell Mochi your study habits and it will remember them.</li>';
         } catch (error) {
             console.error('Could not load memory', error);
         }
@@ -569,10 +619,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('.forget-btn');
         if (!btn) return;
         await fetch(`${API}/api/preferences/${btn.dataset.id}`, { method: 'DELETE' });
-        // Copilot also reads this chat (short-term memory), so it may still know the thing you deleted
+        // Mochi also reads this chat (short-term memory), so it may still know the thing you deleted
         const chatHasMessages = agentMessages.querySelector('.user-message') !== null;
         showToast(chatHasMessages
-            ? 'Forgotten. Copilot can still see it in this chat, so click <strong>New chat</strong> to fully reset.'
+            ? 'Forgotten. Mochi can still see it in this chat, so click <strong>New chat</strong> to fully reset.'
             : 'Forgotten.', chatHasMessages ? 6 : 3);
         loadMemory();
     });
@@ -613,10 +663,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalTitle = dropZoneTitle.textContent;
         const originalIconClass = dropZoneIcon.className;
         
-        dropZoneTitle.textContent = 'Parsing document...';
+        dropZoneTitle.textContent = 'Mochi is reading it...';
         dropZoneIcon.className = 'fa-solid fa-spinner fa-spin';
         dropZone.style.pointerEvents = 'none';
         dropZone.style.opacity = '0.7';
+        setMochi('thinking');
+        const oldError = document.getElementById('upload-error');
+        if (oldError) oldError.remove();
 
         const formData = new FormData();
         formData.append('file', file);
@@ -638,31 +691,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw err;
             }
             
-            showToast('Document parsed successfully!');
+            showToast('Done! Mochi has read your PDF.');
+            setMochi('happy', 1.6);
             await loadExistingTasks();
 
         } catch (error) {
             console.error("Upload error:", error);
-            cardsContainer.innerHTML = `
-                <div class="extraction-col" style="grid-column: 1 / -1;">
-                    <div class="col-header">
-                        <span class="dot red-dot"></span> SYSTEM ERROR
-                    </div>
-                    <div class="task-card" style="border-color: rgba(248, 113, 113, 0.4);">
-                        <h3 class="card-title" style="color: var(--text-red);">Extraction Failed</h3>
-                        <p class="card-desc">${error.message}</p>
-                        <div class="deadline-box" style="margin-top: 15px; background: rgba(248, 113, 113, 0.1);">
-                            <i class="fa-solid fa-triangle-exclamation" style="color: var(--text-red);"></i>
-                            <div class="deadline-text">
-                                <span class="deadline-label">TROUBLESHOOTING</span>
-                                <span class="deadline-value">${error.busy
-                                    ? 'The AI is overloaded. Nothing was saved, so just upload the PDF again in a minute.'
-                                    : 'Ensure the FastAPI server is running and dependencies are installed.'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            setMochi('oops', 2);
+            // Show the problem right under the drop zone, and keep your tasks on screen
+            const box = document.createElement('div');
+            box.id = 'upload-error';
+            box.className = 'upload-error';
+            box.setAttribute('role', 'alert');
+            box.innerHTML = `
+                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                <div>
+                    <strong>Mochi couldn't read that PDF</strong>
+                    <p>${escapeHtml(error.message)}</p>
+                    <p>${error.busy
+                        ? 'The AI is busy right now. Nothing was saved, so just upload it again in a minute.'
+                        : 'Make sure the backend is running, then try again.'}</p>
+                </div>`;
+            dropZone.after(box);
         } finally {
             dropZoneTitle.textContent = originalTitle;
             dropZoneIcon.className = originalIconClass;
@@ -672,20 +722,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderCards(tasks) {
-        if (badge) badge.textContent = `${tasks.length} found`;
+    // Assignments go to "Your tasks"; lecture notes go to "Mochi has read"
+    const notesList = document.getElementById('notes-list');
+    const taskCount = document.getElementById('task-count');
+    const notesCount = document.getElementById('notes-count');
 
-        if (tasks.length === 0) {
-            cardsContainer.innerHTML = `
-                <div class="waiting-card" style="grid-column: 1 / -1;">
-                    <i class="fa-solid fa-wand-magic-sparkles waiting-icon"></i>
+    function renderCards(items) {
+        if (badge) badge.textContent = `${items.length} found`;
+        const tasks = items.filter(t => t.document_type === 'Assignment');
+        const notes = items.filter(t => t.document_type !== 'Assignment');
+
+        const toDo = tasks.filter(t => !t.is_done).length;
+        taskCount.textContent = tasks.length ? `${toDo} to do` : '';
+        notesCount.textContent = notes.length || '';
+
+        cardsContainer.innerHTML = tasks.length
+            ? tasks.map(renderCard).join('')
+            : `<div class="waiting-card">
+                    <i class="fa-solid fa-wand-magic-sparkles waiting-icon" aria-hidden="true"></i>
                     <h3>No tasks yet</h3>
-                    <p>Upload an assignment PDF, or tell Ask Copilot: "Add my lab report for BACS2093, due next Friday".</p>
-                </div>`;
-            return;
-        }
+                    <p>Drop an assignment PDF above, or tell Mochi: "Add my lab report for BACS2093, due next Friday".</p>
+               </div>`;
 
-        cardsContainer.innerHTML = tasks.map(renderCard).join('');
+        notesList.innerHTML = notes.length
+            ? notes.map(renderNote).join('')
+            : '<li class="notes-empty">No lecture notes yet. Drop one above and Mochi will read it.</li>';
+    }
+
+    // One lecture note in Mochi's library
+    function renderNote(item) {
+        const concepts = (item.key_concepts || []).length;
+        const chatButton = item.raw_text
+            ? `<button class="chat-btn" data-id="${item.id}" aria-label="Chat about ${escapeHtml(item.title)}"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i> <span class="btn-label">Chat</span></button>`
+            : '';
+        return `
+            <li class="note-item" data-id="${item.id}">
+                <span class="note-icon"><i class="fa-regular fa-file-lines" aria-hidden="true"></i></span>
+                <div class="note-text">
+                    <strong>${escapeHtml(item.title || 'Untitled')}</strong>
+                    <span>${escapeHtml(item.course_name)}${concepts ? ` · ${concepts} key concepts` : ''}</span>
+                </div>
+                <div class="card-actions">
+                    ${chatButton}
+                    <button class="delete-btn" data-id="${item.id}" aria-label="Delete ${escapeHtml(item.title)}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
+                </div>
+            </li>`;
     }
 
     function renderCard(item) {
@@ -738,26 +819,24 @@ document.addEventListener('DOMContentLoaded', () => {
             conceptsHtml = `<div class="extracted-steps"><h4>KEY CONCEPTS TO REVIEW</h4><div>${concepts}</div></div>`;
         }
 
+        // Urgency as a word and a colour (never colour alone). Overdue tasks already say OVERDUE,
+        // and their score is out of date (it was worked out when the PDF was uploaded).
         let urgencyHtml = '';
-        if (item.urgency_score && isAssignment && !item.is_done) {
-            if (item.urgency_score > 7) {
-                urgencyHtml = `<span class="tag red"><span class="dot red-dot"></span> URGENCY: ${item.urgency_score}/10</span>`;
-            } else if (item.urgency_score > 4) {
-                urgencyHtml = `<span class="tag gray" style="color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.1);"><span class="dot" style="background-color: #fbbf24; display: inline-block; margin-right: 4px;"></span> URGENCY: ${item.urgency_score}/10</span>`;
-            } else {
-                urgencyHtml = `<span class="tag gray"><span class="dot blue"></span> URGENCY: ${item.urgency_score}/10</span>`;
-            }
+        if (item.urgency_score && isAssignment && !item.is_done && !overdue) {
+            const level = item.urgency_score > 7 ? ['urgency-high', 'HIGH']
+                : item.urgency_score > 4 ? ['urgency-mid', 'MEDIUM'] : ['urgency-low', 'LOW'];
+            urgencyHtml = `<span class="tag ${level[0]}">${level[1]} URGENCY · ${item.urgency_score}/10</span>`;
         }
 
         // Chat only works when we have the PDF's text (tasks added by chatting don't have one)
         const chatButton = item.raw_text
-            ? `<button class="chat-btn" data-id="${item.id}" title="Ask questions about this PDF"><i class="fa-regular fa-comment-dots"></i> Chat</button>`
+            ? `<button class="chat-btn" data-id="${item.id}" aria-label="Chat about this PDF"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i> Chat</button>`
             : '';
         const cardActions = `
             <div class="card-actions">
                 ${chatButton}
-                <button class="edit-btn" title="Edit task"><i class="fa-regular fa-pen-to-square"></i></button>
-                <button class="delete-btn" data-id="${item.id}" title="Delete task"><i class="fa-regular fa-trash-can"></i></button>
+                <button class="edit-btn" aria-label="Edit task"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>
+                <button class="delete-btn" data-id="${item.id}" aria-label="Delete task"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
             </div>`;
 
         const editForm = `
@@ -783,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
             <div class="extraction-col ${item.is_done ? 'is-done' : ''}" data-id="${item.id}">
-                <div class="col-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="col-header">
                     <span>${status}</span>
                     ${cardActions}
                 </div>
