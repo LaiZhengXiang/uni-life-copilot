@@ -277,6 +277,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // close the top-most thing only
         if (!drawer.hidden) setDrawer(false);
         else if (noteModal.classList.contains('active')) closeNote();
+        else if (openPop) {
+            const name = openPop;
+            setPop(name);   // closes it
+            document.querySelector(`.dock-btn[data-pop="${name}"]`).focus();
+        }
         else if (document.body.classList.contains('room-mode')) setRoomMode(false);
     });
 
@@ -316,15 +321,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const ROOM_PICTURE = { width: 1672, height: 940, focusY: 0.4 };   // size of the room pictures; 0.4 matches "center 40%" in the CSS
     const OLLIE_ON_DESK = { x: 0.69, bottom: 0.735, height: 0.25 };   // where Ollie sits in the picture
 
-    // The picture is shown with "cover", so it's scaled and cut off at the edges.
-    // This finds where the picture really is on screen, so the clickable spots line up with the objects.
+    // Finds where the picture really is on screen, so the clickable spots line up with the objects.
+    // Wide screens show the whole picture ("contain", centred); tall screens fill the screen
+    // ("cover") slid to 66% so the desk is in view. These match the CSS for .room-art.
     function pictureBox() {
-        const scale = Math.max(innerWidth / ROOM_PICTURE.width, innerHeight / ROOM_PICTURE.height);
+        const tall = innerWidth < innerHeight;
+        const fit = tall ? Math.max : Math.min;
+        const scale = fit(innerWidth / ROOM_PICTURE.width, innerHeight / ROOM_PICTURE.height);
         const width = ROOM_PICTURE.width * scale;
         const height = ROOM_PICTURE.height * scale;
-        // On tall screens the CSS slides the picture to 66% so the desk is in view; match it here
-        const focusX = innerWidth < innerHeight ? 0.66 : 0.5;
-        return { left: (innerWidth - width) * focusX, top: (innerHeight - height) * ROOM_PICTURE.focusY, width, height };
+        return {
+            left: (innerWidth - width) * (tall ? 0.66 : 0.5),
+            top: (innerHeight - height) * (tall ? ROOM_PICTURE.focusY : 0.5),
+            width,
+            height,
+        };
     }
 
     function placeRoomObjects() {
@@ -435,6 +446,316 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Petting works on the desk Ollie too
     document.getElementById('room-ollie-btn').addEventListener('click', () => petOllie(roomOllie));
+
+    // ---------- Chill dock: lo-fi radio, cozy sounds, focus timer, quick notes ----------
+    const dockButtons = document.querySelectorAll('.dock-btn');
+    const appBox = document.getElementById('app-box');
+    const POPS = ['music', 'sounds', 'notes'];
+    const popEl = (name) => document.getElementById(`pop-${name}`);
+    const isPopOpen = (name) => !popEl(name).hidden;
+    let openPop = null;   // the panel opened last (Esc closes this one first)
+
+    function closePop(name) {
+        popEl(name).hidden = true;
+        if (name === 'music') stopRadio();   // YouTube's player must stay visible, so closing it stops the music
+    }
+
+    // Opens a panel (or closes it if it's already open). On big screens the radio stays open
+    // next to the other panel, so you can have lo-fi and rain together; on phones it's one at a time.
+    function setPop(name) {
+        if (isPopOpen(name)) {
+            closePop(name);
+        } else {
+            const sideBySide = innerWidth >= 1024;
+            POPS.forEach(other => {
+                if (other !== name && isPopOpen(other) && !(other === 'music' && sideBySide)) closePop(other);
+            });
+            popEl(name).hidden = false;
+            (popEl(name).querySelector('.station, textarea, .sound-toggle') || popEl(name).querySelector('button')).focus();
+        }
+        openPop = POPS.filter(isPopOpen).find(p => p === name) || POPS.find(isPopOpen) || null;
+        appBox.classList.toggle('music-open', isPopOpen('music'));
+        dockButtons.forEach(b => b.setAttribute('aria-expanded', String(isPopOpen(b.dataset.pop))));
+    }
+
+    dockButtons.forEach(b => b.addEventListener('click', () => setPop(b.dataset.pop)));
+    document.querySelectorAll('.pop-close').forEach(b => b.addEventListener('click', () => {
+        const name = b.closest('.dock-pop').id.replace('pop-', '');
+        setPop(name);
+        document.querySelector(`.dock-btn[data-pop="${name}"]`).focus();
+    }));
+
+    // Lo-fi radio: a YouTube live stream in a small visible player
+    const radioPlayer = document.getElementById('radio-player');
+    const musicBtn = document.querySelector('.dock-btn[data-pop="music"]');
+
+    function playRadio(videoId) {
+        radioPlayer.innerHTML = '';
+        const frame = document.createElement('iframe');
+        frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0`;
+        frame.title = 'Lo-fi radio';
+        frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+        radioPlayer.appendChild(frame);
+        document.querySelectorAll('.station').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.video === videoId)));
+        musicBtn.classList.add('is-playing');
+    }
+    const radioEmptyHtml = radioPlayer.innerHTML;
+    function stopRadio() {
+        radioPlayer.innerHTML = radioEmptyHtml;
+        document.querySelectorAll('.station').forEach(s => s.setAttribute('aria-pressed', 'false'));
+        musicBtn.classList.remove('is-playing');
+    }
+
+    // Your stations: links you pasted, saved in this browser (live streams change, so you pick your own)
+    const stationsBox = document.getElementById('stations');
+    const MAX_STATIONS = 4;
+    let stations = [];
+    try { stations = JSON.parse(readSetting('radioStations', '[]')); } catch (e) { stations = []; }
+
+    function renderStations() {
+        stationsBox.innerHTML = stations.map((id, i) => `
+            <span class="station-chip">
+                <button class="station" data-video="${escapeHtml(id)}" aria-pressed="false">Station ${i + 1}</button>
+                <button class="station-remove" data-video="${escapeHtml(id)}" aria-label="Remove station ${i + 1}">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </span>`).join('');
+    }
+    stationsBox.addEventListener('click', (e) => {
+        const remove = e.target.closest('.station-remove');
+        const play = e.target.closest('.station');
+        if (remove) {
+            stations = stations.filter(id => id !== remove.dataset.video);
+            saveSetting('radioStations', JSON.stringify(stations));
+            renderStations();
+        } else if (play) {
+            playRadio(play.dataset.video);
+        }
+    });
+    renderStations();
+
+    // Paste any YouTube link: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/live/ID
+    document.getElementById('radio-link').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('radio-url');
+        const match = input.value.match(/(?:v=|youtu\.be\/|\/live\/|\/embed\/)([\w-]{11})/);
+        if (!match) { showToast("That doesn't look like a YouTube video link."); return; }
+        const id = match[1];
+        stations = [id, ...stations.filter(s => s !== id)].slice(0, MAX_STATIONS);
+        saveSetting('radioStations', JSON.stringify(stations));
+        renderStations();
+        playRadio(id);
+        input.value = '';
+    });
+
+    // Cozy sounds, made live with the Web Audio API (no sound files needed)
+    let audio = null;   // created on the first click: browsers only allow sound after you interact
+    const sounds = {};
+    const soundsBtn = document.querySelector('.dock-btn[data-pop="sounds"]');
+
+    function noiseBuffer(kind) {
+        const ctx = audio;
+        const buffer = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < data.length; i++) {
+            const white = Math.random() * 2 - 1;
+            if (kind === 'brown') {          // deep rumble: each sample drifts from the last one
+                last = (last + 0.02 * white) / 1.02;
+                data[i] = last * 3.5;
+            } else {
+                data[i] = white;
+            }
+        }
+        return buffer;
+    }
+
+    // Each sound is noise shaped by filters: rain = hiss, fire = rumble + crackles, wind = swelling whoosh
+    const SOUND_RECIPES = {
+        rain(out) {
+            const src = audio.createBufferSource();
+            src.buffer = noiseBuffer('white');
+            src.loop = true;
+            const high = audio.createBiquadFilter();
+            high.type = 'highpass';
+            high.frequency.value = 900;
+            const low = audio.createBiquadFilter();
+            low.type = 'lowpass';
+            low.frequency.value = 7000;
+            const level = audio.createGain();
+            level.gain.value = 0.35;
+            src.connect(high).connect(low).connect(level).connect(out);
+            src.start();
+            return () => src.stop();
+        },
+        fire(out) {
+            const src = audio.createBufferSource();
+            src.buffer = noiseBuffer('brown');
+            src.loop = true;
+            const low = audio.createBiquadFilter();
+            low.type = 'lowpass';
+            low.frequency.value = 500;
+            src.connect(low).connect(out);
+            src.start();
+            // little random crackles
+            let timer = null;
+            const crackle = () => {
+                const pop = audio.createBufferSource();
+                pop.buffer = noiseBuffer('white');
+                const band = audio.createBiquadFilter();
+                band.type = 'bandpass';
+                band.frequency.value = 1500 + Math.random() * 2500;
+                const env = audio.createGain();
+                const now = audio.currentTime;
+                env.gain.setValueAtTime(0.25 + Math.random() * 0.35, now);
+                env.gain.exponentialRampToValueAtTime(0.001, now + 0.03 + Math.random() * 0.05);
+                pop.connect(band).connect(env).connect(out);
+                pop.start(now, Math.random() * 2, 0.1);
+                timer = setTimeout(crackle, 60 + Math.random() * 450);
+            };
+            crackle();
+            return () => { src.stop(); clearTimeout(timer); };
+        },
+        wind(out) {
+            const src = audio.createBufferSource();
+            src.buffer = noiseBuffer('brown');
+            src.loop = true;
+            const band = audio.createBiquadFilter();
+            band.type = 'bandpass';
+            band.frequency.value = 500;
+            band.Q.value = 0.8;
+            // a slow wobble moves the filter, so the wind swells and fades
+            const wobble = audio.createOscillator();
+            wobble.frequency.value = 0.12;
+            const depth = audio.createGain();
+            depth.gain.value = 300;
+            wobble.connect(depth).connect(band.frequency);
+            const level = audio.createGain();
+            level.gain.value = 1.6;
+            src.connect(band).connect(level).connect(out);
+            src.start();
+            wobble.start();
+            return () => { src.stop(); wobble.stop(); };
+        },
+    };
+
+    function toggleSound(name, button) {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        if (sounds[name]) {
+            sounds[name].stop();
+            delete sounds[name];
+        } else {
+            const out = audio.createGain();
+            out.gain.value = Number(document.querySelector(`.sound-volume[data-sound="${name}"]`).value);
+            out.connect(audio.destination);
+            sounds[name] = { out, stop: SOUND_RECIPES[name](out) };
+        }
+        button.setAttribute('aria-pressed', String(Boolean(sounds[name])));
+        soundsBtn.classList.toggle('is-playing', Object.keys(sounds).length > 0);
+    }
+    document.querySelectorAll('.sound-toggle').forEach(b => b.addEventListener('click', () => toggleSound(b.dataset.sound, b)));
+    document.querySelectorAll('.sound-volume').forEach(slider => slider.addEventListener('input', () => {
+        const playing = sounds[slider.dataset.sound];
+        if (playing) playing.out.gain.setTargetAtTime(Number(slider.value), audio.currentTime, 0.05);
+    }));
+
+    // Focus timer: 25 minutes focus, then 5 minutes break (15 after every 4th focus)
+    const TIMER = { focus: 25 * 60, break: 5 * 60, longBreak: 15 * 60 };
+    const timerBox = document.getElementById('timer');
+    const timerTime = document.getElementById('timer-time');
+    const timerMode = document.getElementById('timer-mode');
+    const timerToggle = document.getElementById('timer-toggle');
+    const timerCountNum = document.getElementById('timer-count-num');
+    let timerPhase = 'focus';
+    let timerLeft = TIMER.focus;
+    let timerEnd = null;     // when the running timer finishes (a timestamp, so it never drifts)
+    let timerTick = null;
+    const todayKey = () => `focusCount-${new Date().toDateString()}`;
+    let focusCount = Number(readSetting(todayKey(), '0'));
+    timerCountNum.textContent = focusCount;
+
+    function showTimer() {
+        const m = Math.floor(timerLeft / 60), s = timerLeft % 60;
+        const text = `${m}:${String(s).padStart(2, '0')}`;
+        timerTime.textContent = text;
+        timerMode.textContent = timerPhase === 'focus' ? 'Focus' : 'Break';
+        timerBox.classList.toggle('is-break', timerPhase !== 'focus');
+        document.title = timerEnd ? `(${text}) UniLife Copilot` : 'UniLife Copilot';
+    }
+
+    function setTimerRunning(on) {
+        clearInterval(timerTick);
+        timerEnd = on ? Date.now() + timerLeft * 1000 : null;
+        if (on) timerTick = setInterval(tickTimer, 250);
+        timerToggle.innerHTML = `<i class="fa-solid ${on ? 'fa-pause' : 'fa-play'}" aria-hidden="true"></i>`;
+        timerToggle.setAttribute('aria-label', on ? 'Pause the timer' : `Start the ${timerPhase === 'focus' ? 'focus' : 'break'} timer`);
+        showTimer();
+    }
+
+    function chime() {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        [660, 880].forEach((freq, i) => {
+            const tone = audio.createOscillator();
+            const env = audio.createGain();
+            const start = audio.currentTime + i * 0.22;
+            tone.frequency.value = freq;
+            env.gain.setValueAtTime(0.0001, start);
+            env.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+            env.gain.exponentialRampToValueAtTime(0.0001, start + 0.6);
+            tone.connect(env).connect(audio.destination);
+            tone.start(start);
+            tone.stop(start + 0.65);
+        });
+    }
+
+    function tickTimer() {
+        timerLeft = Math.max(0, Math.round((timerEnd - Date.now()) / 1000));
+        showTimer();
+        if (timerLeft > 0) return;
+        chime();
+        if (timerPhase === 'focus') {
+            focusCount += 1;
+            saveSetting(todayKey(), String(focusCount));
+            timerCountNum.textContent = focusCount;
+            const long = focusCount % 4 === 0;
+            timerPhase = 'break';
+            timerLeft = long ? TIMER.longBreak : TIMER.break;
+            ollieSay('', `Focus session done! That's ${focusCount} today. Take a ${long ? 15 : 5} minute break.`, { mood: 'happy' });
+        } else {
+            timerPhase = 'focus';
+            timerLeft = TIMER.focus;
+            ollieSay('', "Break's over. Ready for another focus session? Press play when you are.", { mood: 'explain' });
+        }
+        setTimerRunning(false);
+    }
+
+    timerToggle.addEventListener('click', () => setTimerRunning(!timerEnd));
+    document.getElementById('timer-reset').addEventListener('click', () => {
+        timerPhase = 'focus';
+        timerLeft = TIMER.focus;
+        setTimerRunning(false);
+    });
+    showTimer();
+
+    // Quick notes: saved in this browser as you type
+    const quickNotes = document.getElementById('quick-notes');
+    const notesStatus = document.getElementById('notes-status');
+    let notesTimer = null;
+    quickNotes.value = readSetting('quickNotes', '');
+    quickNotes.addEventListener('input', () => {
+        notesStatus.textContent = 'Saving...';
+        clearTimeout(notesTimer);
+        notesTimer = setTimeout(() => {
+            saveSetting('quickNotes', quickNotes.value);
+            notesStatus.textContent = 'Saved on this device.';
+        }, 400);
+    });
+    document.getElementById('clear-notes').addEventListener('click', () => {
+        if (!quickNotes.value || !confirm('Clear all your quick notes?')) return;
+        quickNotes.value = '';
+        saveSetting('quickNotes', '');
+        quickNotes.focus();
+    });
 
     // ---------- Ollie speaks: the answer appears in the speech bubble ----------
     const PREVIEW_CHARS = 260;

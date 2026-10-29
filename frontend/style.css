@@ -26,7 +26,7 @@
 
 /* Tiny Ollie face, used as the chat avatar and in toasts */
 :root {
-    --ollie-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='22 12 156 146'%3E%3Cpath fill='%23E8A055' d='M46 74 L40 22 C40 17 45 15 49 18 L84 46 Z'/%3E%3Cpath fill='%23E8A055' d='M154 74 L160 22 C160 17 155 15 151 18 L116 46 Z'/%3E%3Cpath fill='%23F1A69D' d='M52 62 L48 31 L73 48 Z'/%3E%3Cpath fill='%23F1A69D' d='M148 62 L152 31 L127 48 Z'/%3E%3Cpath fill='%23EFA85C' d='M100 34 C142 34 170 58 172 94 C174 118 162 140 134 148 C118 153 82 153 66 148 C38 140 26 118 28 94 C30 58 58 34 100 34 Z'/%3E%3Cellipse fill='%23FBE7CF' cx='88' cy='126' rx='16' ry='12'/%3E%3Cellipse fill='%23FBE7CF' cx='112' cy='126' rx='16' ry='12'/%3E%3Cpath fill='%23E58A8A' d='M93 114 Q100 111 107 114 Q104 120 100 121 Q96 120 93 114 Z'/%3E%3Ccircle fill='%233A2417' cx='76' cy='92' r='11'/%3E%3Ccircle fill='%233A2417' cx='124' cy='92' r='11'/%3E%3Ccircle fill='%23FFF' cx='80' cy='87.5' r='3.6'/%3E%3Ccircle fill='%23FFF' cx='128' cy='87.5' r='3.6'/%3E%3Ccircle fill='none' stroke='%231E1A1A' stroke-width='6' cx='76' cy='92' r='22'/%3E%3Ccircle fill='none' stroke='%231E1A1A' stroke-width='6' cx='124' cy='92' r='22'/%3E%3Cpath fill='none' stroke='%231E1A1A' stroke-width='5' d='M98 89 Q100 85 102 89'/%3E%3C/svg%3E");
+    --ollie-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='18 10 204 180'%3E%3Cpath fill='%23EAD0B4' d='M38 84 L32 24 C32 15 40 12 47 17 L94 48 Z'/%3E%3Cpath fill='%23EAD0B4' d='M202 84 L208 24 C208 15 200 12 193 17 L146 48 Z'/%3E%3Cpath fill='%23EDB8A8' d='M46 70 L42 32 L80 52 Z'/%3E%3Cpath fill='%23EDB8A8' d='M194 70 L198 32 L160 52 Z'/%3E%3Cpath fill='%23F5E6D4' d='M120 34 C170 34 210 60 215 104 C220 146 196 176 158 182 C140 185 100 185 82 182 C44 176 20 146 25 104 C30 60 70 34 120 34 Z'/%3E%3Ccircle fill='%23FFF' cx='80' cy='103' r='22'/%3E%3Ccircle fill='%23FFF' cx='160' cy='103' r='22'/%3E%3Ccircle fill='%234A3022' cx='81' cy='102' r='19.5'/%3E%3Ccircle fill='%234A3022' cx='159' cy='102' r='19.5'/%3E%3Ccircle fill='%23140C07' cx='81' cy='102' r='13'/%3E%3Ccircle fill='%23140C07' cx='159' cy='102' r='13'/%3E%3Ccircle fill='%23FFF' cx='89' cy='94' r='6'/%3E%3Ccircle fill='%23FFF' cx='167' cy='94' r='6'/%3E%3Crect fill='none' stroke='%23141414' stroke-width='8' x='44' y='78' width='72' height='50' rx='11'/%3E%3Crect fill='none' stroke='%23141414' stroke-width='8' x='124' y='78' width='72' height='50' rx='11'/%3E%3Cpath fill='none' stroke='%23141414' stroke-width='7' d='M116 92 Q120 86 124 92'/%3E%3Cellipse fill='%23FFFBF6' cx='106' cy='160' rx='20' ry='14'/%3E%3Cellipse fill='%23FFFBF6' cx='134' cy='160' rx='20' ry='14'/%3E%3Cpath fill='%23E59E94' d='M97 131 Q120 119 143 131 Q142 148 126 154 Q120 156 114 154 Q98 148 97 131 Z'/%3E%3Crect fill='%23FFF' stroke='%23CFC4B8' x='108.5' y='158' width='11.5' height='17' rx='3'/%3E%3Crect fill='%23FFF' stroke='%23CFC4B8' x='120' y='158' width='11.5' height='17' rx='3'/%3E%3C/svg%3E");
 }
 
 /* ---------- Time-of-day colours ----------
@@ -208,23 +208,38 @@ a { color: var(--accent-text); }
     z-index: -1;
     overflow: hidden;
 }
+/* Which picture: one per time of day */
+body[data-time="morning"] { --room-img: url("assets/room/room-morning.webp"); }
+body[data-time="afternoon"] { --room-img: url("assets/room/room-afternoon.webp"); }
+body[data-time="evening"] { --room-img: url("assets/room/room-evening.webp"); }
+body[data-time="night"] { --room-img: url("assets/room/room-night.webp"); }
+/* No night picture yet? Use the sunset room, darkened and tinted blue (main.js checks) */
+body[data-time="night"][data-night-art="missing"] { --room-img: url("assets/room/room-evening.webp"); }
+
+/* The whole picture is always visible (nothing cut off). If the window is a different shape,
+   the gaps around it are filled with a blurred copy of the same picture. */
+.room-fill,
 .room-art {
     position: absolute;
     inset: 0;
-    /* Your painted room on top; the sky gradient shows until the picture exists */
-    background-size: cover;
-    background-position: center 40%;
-    transition: background-image var(--slow);
+    background-image: var(--room-img), var(--sky);
+    background-repeat: no-repeat;
+    background-position: center;
 }
-body[data-time="morning"] .room-art { background-image: url("assets/room/room-morning.webp"), var(--sky); }
-body[data-time="afternoon"] .room-art { background-image: url("assets/room/room-afternoon.webp"), var(--sky); }
-body[data-time="evening"] .room-art { background-image: url("assets/room/room-evening.webp"), var(--sky); }
-body[data-time="night"] .room-art { background-image: url("assets/room/room-night.webp"), var(--sky); }
+.room-fill {
+    background-size: cover;
+    filter: blur(28px) brightness(0.8) saturate(1.1);
+    transform: scale(1.08);   /* hides the soft blurry edge */
+}
+.room-art { background-size: contain; background-image: var(--room-img); }
+body[data-time="night"][data-night-art="missing"] .room-art,
+body[data-time="night"][data-night-art="missing"] .room-fill { filter: brightness(0.5) saturate(0.7); }
+body[data-time="night"][data-night-art="missing"] .room-fill { filter: blur(28px) brightness(0.4) saturate(0.7); }
 
-/* No night picture yet? Use the sunset room, darkened and tinted blue (main.js checks) */
-body[data-time="night"][data-night-art="missing"] .room-art {
-    background-image: url("assets/room/room-evening.webp"), var(--sky);
-    filter: brightness(0.5) saturate(0.7);
+/* On tall screens (phones) a fitted picture would be a thin strip, so fill the screen instead
+   and slide toward the desk. main.js uses the same numbers when it places the clickable spots. */
+@media (orientation: portrait) {
+    .room-art { background-size: cover; background-position: 66% 40%; }
 }
 body[data-time="night"][data-night-art="missing"] .room-shade {
     background: linear-gradient(180deg, rgba(10, 18, 52, 0.55), rgba(6, 10, 30, 0.45)), var(--room-shade);
@@ -857,7 +872,7 @@ body[data-time="night"][data-night-art="missing"] .room-shade {
     height: 32px;
     margin-top: 2px;
     border-radius: 50%;
-    background: var(--accent-soft) var(--ollie-face) center 60% / 120% no-repeat;
+    background: var(--accent-soft) var(--ollie-face) center / 88% no-repeat;
 }
 .message-bubble {
     min-width: 0;
@@ -1287,7 +1302,7 @@ body[data-time="night"][data-night-art="missing"] .room-shade {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--accent-soft) var(--ollie-face) center 60% / 120% no-repeat;
+    background: var(--accent-soft) var(--ollie-face) center / 88% no-repeat;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
@@ -1580,4 +1595,306 @@ body.room-mode .room-hotspot { animation: hotspot-hint 1.6s ease-out 0.3s 1; }
         clip: rect(0 0 0 0);
     }
     .room-tool { min-width: 44px; justify-content: center; }
+}
+
+/* =========================================================
+   The app box: everything sits in one box inside the room,
+   with the room showing around it like a frame
+   ========================================================= */
+:root {
+    --gutter-x: clamp(16px, 4vw, 64px);
+    --gutter-y: clamp(14px, 4.5vh, 44px);
+}
+.app-box {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(1400px, calc(100% - 2 * var(--gutter-x)));
+    margin: var(--gutter-y) auto;
+}
+.topbar {
+    position: relative;
+    top: auto;
+    height: 56px;
+    padding: 0 10px 0 14px;
+    border-radius: 999px;
+    border-width: 1px;
+}
+.layout {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+}
+
+/* Big screens: the box is exactly the window's height; the task list scrolls inside its panel */
+@media (min-width: 1024px) {
+    .app-box {
+        height: calc(100dvh - 2 * var(--gutter-y));
+        min-height: 560px;
+    }
+    .app-box > .layout { flex: 1; min-height: 0; }
+    .tasks-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .tasks-panel .cards-layout {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        margin-right: -6px;
+        padding: 2px 6px 8px 2px;
+    }
+    .ollie-corner { position: relative; top: auto; height: 100%; min-height: 0; }
+    /* Expanded tasks: Ollie waits in the box's corner, above the dock */
+    .layout.is-expanded .ollie-corner { position: absolute; top: auto; right: 16px; bottom: 72px; height: auto; }
+}
+
+/* =========================================================
+   Chill dock: lo-fi radio, cozy sounds, focus timer, quick notes
+   ========================================================= */
+.chill-dock {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 6px;
+    border-radius: 999px;
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    scrollbar-width: none;
+    transition: opacity var(--normal), visibility var(--normal);
+}
+body.room-mode .chill-dock { opacity: 0; visibility: hidden; }
+
+.dock-btn {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 700;
+    transition: background-color var(--fast), color var(--fast);
+}
+.dock-btn:hover,
+.dock-btn[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-text); }
+/* little green dot while music or sounds are playing */
+.dock-live {
+    display: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mint);
+    animation: live-pulse 1.6s ease-in-out infinite;
+}
+.dock-btn.is-playing .dock-live { display: inline-block; }
+@keyframes live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+.timer {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    margin: 0 4px;
+    padding: 0 8px 0 14px;
+    border-left: 1px solid var(--line-strong);
+    border-right: 1px solid var(--line-strong);
+}
+.timer-mode {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.timer.is-break .timer-mode { color: var(--mint-ink); }
+.timer-time {
+    min-width: 3.1em;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.timer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    color: var(--ink);
+    transition: background-color var(--fast), filter var(--fast);
+}
+.timer-btn:hover { background: var(--accent-soft); }
+#timer-toggle { background: var(--accent); color: var(--on-accent); }
+#timer-toggle:hover { filter: brightness(1.08); }
+.timer-count { padding: 0 4px; font-size: 0.82rem; font-weight: 800; color: var(--accent-text); }
+
+/* The pop-up panels above the dock */
+.dock-pop {
+    position: absolute;
+    left: 0;
+    bottom: 64px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(380px, 100%);
+    padding: 14px;
+    border-radius: var(--radius-xl);
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    animation: pop-in var(--normal) var(--ease-out);
+}
+.dock-pop[hidden] { display: none; }
+@keyframes pop-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+.pop-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pop-head h3 { font-size: 1.05rem; }
+.pop-head h3 i { margin-right: 4px; color: var(--accent-text); }
+.pop-close { width: 34px; height: 34px; }
+.pop-hint { font-size: 0.78rem; color: var(--ink-soft); }
+
+.stations { display: flex; flex-wrap: wrap; gap: 6px; }
+.station {
+    min-height: 34px;
+    padding: 5px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    font-size: 0.84rem;
+    font-weight: 700;
+    transition: background-color var(--fast), color var(--fast);
+}
+.station:hover { border-color: var(--accent); }
+.station[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.radio-player {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 9;
+    min-height: 200px;   /* YouTube asks for a visible player of at least 200px */
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+}
+.radio-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+.radio-empty { padding: 12px; font-size: 0.88rem; color: var(--ink-soft); text-align: center; }
+.radio-link { display: flex; gap: 6px; }
+.radio-link input,
+#quick-notes {
+    border: 1px solid var(--line-strong);
+    background: var(--surface-solid);
+    color: var(--ink);
+    font-size: 0.9rem;
+}
+.radio-link input { flex: 1; min-width: 0; padding: 8px 14px; border-radius: 999px; }
+.radio-link input:focus,
+#quick-notes:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.radio-link .btn { min-height: 38px; padding: 6px 14px; }
+
+.sound-list { display: flex; flex-direction: column; gap: 8px; }
+.sound-row { display: flex; align-items: center; gap: 12px; }
+.sound-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 136px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 700;
+    transition: background-color var(--fast), color var(--fast);
+}
+.sound-toggle[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.sound-volume { flex: 1; min-width: 0; accent-color: var(--accent); }
+
+#quick-notes {
+    width: 100%;
+    min-height: 170px;
+    padding: 12px;
+    border-radius: var(--radius);
+    font-family: inherit;
+    line-height: 1.55;
+    resize: vertical;
+}
+.notes-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.notes-foot .btn { min-height: 36px; padding: 6px 12px; font-size: 0.84rem; }
+
+/* ---------- Smaller screens: the box becomes the whole page, the dock sticks to the bottom ---------- */
+@media (max-width: 1023px) {
+    .app-box { width: 100%; margin: 0; padding: 12px 12px 84px; }
+    .chill-dock {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        z-index: 40;
+        justify-content: space-between;
+    }
+    .dock-pop { position: fixed; left: 12px; right: 12px; bottom: 76px; width: auto; }
+}
+@media (max-width: 640px) {
+    .dock-label,
+    .timer-mode,
+    .timer-count { display: none; }
+    .dock-btn { padding: 6px 12px; }
+    .timer { padding: 0 4px 0 8px; margin: 0; }
+    .topbar { height: 54px; }
+}
+
+/* Big screens: when the radio is open, other panels open next to it */
+@media (min-width: 1024px) {
+    .app-box.music-open #pop-sounds,
+    .app-box.music-open #pop-notes { left: 392px; }
+}
+
+/* Keep the box's top margin inside the page (otherwise it leaks out and the page scrolls a little) */
+body { display: flow-root; }
+
+/* Saved radio stations: a chip with a small remove button */
+.station-chip { display: inline-flex; align-items: center; gap: 2px; }
+.station-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: var(--ink-soft);
+}
+.station-remove:hover { background: var(--rose-soft); color: var(--rose-ink); }
+.stations:empty { display: none; }
+.pop-hint a { color: var(--accent-text); font-weight: 700; }
+
+/* Smaller screens: one column again (Ollie first, then tasks); the desktop two-column rule above must not apply */
+@media (max-width: 1023px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+    .user-chip { display: none; }   /* not needed on a phone; leaves room for the buttons */
 }

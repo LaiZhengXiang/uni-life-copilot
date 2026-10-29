@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=20">
-    <link rel="stylesheet" href="ollie.css?v=16">
+    <link rel="stylesheet" href="style.css?v=27">
+    <link rel="stylesheet" href="ollie.css?v=21">
 </head>
 <!-- data-time (morning / afternoon / evening / night) is set by main.js from your clock -->
 <body data-time="afternoon">
@@ -20,20 +20,21 @@
          a gradient inside a hidden element stops painting in every copy that uses it -->
     <svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
         <defs>
-            <radialGradient id="ollie-fur" cx="50%" cy="38%" r="65%">
-                <stop offset="0%" stop-color="#F8C887"/>
-                <stop offset="70%" stop-color="#EDA457"/>
-                <stop offset="100%" stop-color="#DC8C42"/>
+            <radialGradient id="ollie-fur" cx="50%" cy="68%" r="70%">
+                <stop offset="0%" stop-color="#FFF8F0"/>
+                <stop offset="60%" stop-color="#F4E1CC"/>
+                <stop offset="100%" stop-color="#E4C2A0"/>
             </radialGradient>
-            <radialGradient id="ollie-body-fur" cx="50%" cy="30%" r="75%">
-                <stop offset="0%" stop-color="#F3B56D"/>
-                <stop offset="100%" stop-color="#D98940"/>
+            <radialGradient id="ollie-body-fur" cx="50%" cy="35%" r="75%">
+                <stop offset="0%" stop-color="#FBF0E4"/>
+                <stop offset="100%" stop-color="#E2C3A3"/>
             </radialGradient>
         </defs>
     </svg>
 
     <!-- The cozy room behind everything. The picture changes with the time of day. -->
     <div class="room" aria-hidden="true">
+        <div class="room-fill"></div>
         <div class="room-art"></div>
         <div class="room-shade"></div>
     </div>
@@ -65,256 +66,322 @@
         </nav>
     </div>
 
-    <header class="topbar">
-        <a class="brand" href="#" aria-label="UniLife Copilot home">
-            <span class="brand-ollie" id="brand-ollie" aria-hidden="true"></span>
-            <span class="brand-name">UniLife <strong>Copilot</strong></span>
-        </a>
-
-        <div class="topbar-actions">
-            <span class="room-clock" id="room-clock" aria-label="Current time"></span>
-
-            <!-- Room mode: hide the panels and look around the room -->
-            <button class="icon-btn" id="room-btn" aria-pressed="false" aria-label="Look around the room"
-                    title="Look around the room">
-                <i class="fa-solid fa-couch" aria-hidden="true"></i>
-            </button>
-
-            <!-- The light switch: follow the real time, or pick a time of day -->
-            <label class="light-switch">
-                <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
-                <span class="visually-hidden">Room light</span>
-                <select id="time-mode">
-                    <option value="auto">Real time</option>
-                    <option value="morning">Morning</option>
-                    <option value="afternoon">Afternoon</option>
-                    <option value="evening">Evening</option>
-                    <option value="night">Night</option>
-                </select>
-            </label>
-
-            <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
-            <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" class="icon-btn" download
-               aria-label="Add deadlines to my calendar" title="Add deadlines to my calendar">
-                <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i>
+    <!-- Everything sits in one box inside the room, so the room frames it -->
+    <div class="app-box" id="app-box">
+        <header class="topbar">
+            <a class="brand" href="#" aria-label="UniLife Copilot home">
+                <span class="brand-ollie" id="brand-ollie" aria-hidden="true"></span>
+                <span class="brand-name">UniLife <strong>Copilot</strong></span>
             </a>
 
-            <!-- Bell: what's due in the next 3 days -->
-            <div class="bell-wrapper">
-                <button class="icon-btn" id="bell-btn" aria-label="Due in the next 3 days" aria-haspopup="true">
-                    <i class="fa-regular fa-bell" aria-hidden="true"></i>
-                    <span class="bell-count" id="bell-count" hidden></span>
+            <div class="topbar-actions">
+                <span class="room-clock" id="room-clock" aria-label="Current time"></span>
+
+                <!-- Room mode: hide the panels and look around the room -->
+                <button class="icon-btn" id="room-btn" aria-pressed="false" aria-label="Look around the room"
+                        title="Look around the room">
+                    <i class="fa-solid fa-couch" aria-hidden="true"></i>
                 </button>
-                <div class="bell-dropdown" id="bell-dropdown" hidden></div>
-            </div>
 
-            <div class="user-chip">
-                <span class="avatar" aria-hidden="true">ZX</span>
-                <span class="hide-small">Zheng Xiang</span>
-            </div>
-        </div>
-    </header>
+                <!-- The light switch: follow the real time, or pick a time of day -->
+                <label class="light-switch">
+                    <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                    <span class="visually-hidden">Room light</span>
+                    <select id="time-mode">
+                        <option value="auto">Real time</option>
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                        <option value="evening">Evening</option>
+                        <option value="night">Night</option>
+                    </select>
+                </label>
 
-    <main class="layout" id="layout">
-        <!-- ===== Tasks: the main area ===== -->
-        <section class="panel tasks-panel" id="tasks-panel" aria-labelledby="tasks-title">
-            <div class="panel-head">
-                <div class="panel-title">
-                    <h2 id="tasks-title">Your tasks <span class="count-pill" id="task-count"></span></h2>
-                    <p class="list-hint">Tick off steps as you go. Drop a PDF here to add it.</p>
+                <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
+                <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" class="icon-btn" download
+                   aria-label="Add deadlines to my calendar" title="Add deadlines to my calendar">
+                    <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i>
+                </a>
+
+                <!-- Bell: what's due in the next 3 days -->
+                <div class="bell-wrapper">
+                    <button class="icon-btn" id="bell-btn" aria-label="Due in the next 3 days" aria-haspopup="true">
+                        <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                        <span class="bell-count" id="bell-count" hidden></span>
+                    </button>
+                    <div class="bell-dropdown" id="bell-dropdown" hidden></div>
                 </div>
-                <div class="panel-actions">
-                    <button class="btn btn-primary" id="upload-btn">
-                        <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Upload PDF
-                    </button>
-                    <button class="btn btn-soft" id="notes-btn" aria-controls="notes-drawer" aria-expanded="false">
-                        <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Notes
-                        <span class="count-pill" id="notes-count"></span>
-                    </button>
-                    <button class="icon-btn expand-btn" id="expand-btn" aria-pressed="false" aria-label="Expand tasks"
-                            title="Expand tasks">
-                        <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="cards-layout" id="task-list">
-                <div class="waiting-card">
-                    <i class="fa-solid fa-spinner fa-spin waiting-icon" aria-hidden="true"></i>
-                    <h3>Loading your tasks...</h3>
+
+                <div class="user-chip">
+                    <span class="avatar" aria-hidden="true">ZX</span>
+                    <span class="hide-small">Zheng Xiang</span>
                 </div>
             </div>
-        </section>
+        </header>
 
-        <!-- ===== Ollie's corner: Pet mode (Ollie talks) or Chat mode (normal chat) ===== -->
-        <section class="ollie-corner" id="ollie-corner" data-mode="pet" aria-labelledby="ollie-title">
-            <div class="corner-head">
-                <h1 id="ollie-title">Ollie <span class="role">study buddy</span></h1>
-                <div class="mode-switch" role="group" aria-label="How to talk to Ollie">
-                    <button class="mode-btn" data-mode="pet" aria-pressed="true">
-                        <i class="fa-solid fa-cat" aria-hidden="true"></i> Pet
-                    </button>
-                    <button class="mode-btn" data-mode="chat" aria-pressed="false">
-                        <i class="fa-regular fa-comments" aria-hidden="true"></i> Chat
+        <main class="layout" id="layout">
+            <!-- ===== Tasks: the main area ===== -->
+            <section class="panel tasks-panel" id="tasks-panel" aria-labelledby="tasks-title">
+                <div class="panel-head">
+                    <div class="panel-title">
+                        <h2 id="tasks-title">Your tasks <span class="count-pill" id="task-count"></span></h2>
+                        <p class="list-hint">Tick off steps as you go. Drop a PDF here to add it.</p>
+                    </div>
+                    <div class="panel-actions">
+                        <button class="btn btn-primary" id="upload-btn">
+                            <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Upload PDF
+                        </button>
+                        <button class="btn btn-soft" id="notes-btn" aria-controls="notes-drawer" aria-expanded="false">
+                            <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Notes
+                            <span class="count-pill" id="notes-count"></span>
+                        </button>
+                        <button class="icon-btn expand-btn" id="expand-btn" aria-pressed="false" aria-label="Expand tasks"
+                                title="Expand tasks">
+                            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="cards-layout" id="task-list">
+                    <div class="waiting-card">
+                        <i class="fa-solid fa-spinner fa-spin waiting-icon" aria-hidden="true"></i>
+                        <h3>Loading your tasks...</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== Ollie's corner: Pet mode (Ollie talks) or Chat mode (normal chat) ===== -->
+            <section class="ollie-corner" id="ollie-corner" data-mode="pet" aria-labelledby="ollie-title">
+                <div class="corner-head">
+                    <h1 id="ollie-title">Ollie <span class="role">study buddy</span></h1>
+                    <div class="mode-switch" role="group" aria-label="How to talk to Ollie">
+                        <button class="mode-btn" data-mode="pet" aria-pressed="true">
+                            <i class="fa-solid fa-cat" aria-hidden="true"></i> Pet
+                        </button>
+                        <button class="mode-btn" data-mode="chat" aria-pressed="false">
+                            <i class="fa-regular fa-comments" aria-hidden="true"></i> Chat
+                        </button>
+                    </div>
+                    <button class="icon-btn" id="new-chat" aria-label="New chat"
+                            title="New chat (Ollie keeps what it remembers about you)">
+                        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                     </button>
                 </div>
-                <button class="icon-btn" id="new-chat" aria-label="New chat"
-                        title="New chat (Ollie keeps what it remembers about you)">
-                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                </button>
-            </div>
 
-            <!-- Pet mode: Ollie answers in a speech bubble -->
-            <div class="stage">
-                <div class="speech" id="ollie-speech" aria-live="polite">
-                    <p class="speech-question" id="speech-question" hidden></p>
-                    <div class="speech-text" id="ollie-says">Hi! Let me check your day...</div>
-                    <div class="speech-extras" id="speech-extras"></div>
-                </div>
-                <span class="speech-tail" aria-hidden="true"></span>
-                <button class="ollie-btn" id="ollie-btn" aria-label="Pet Ollie">
-                    <span class="ollie" id="ollie" data-state="idle">
-                        <!-- Ollie the nerdy cat. Moods are set with data-state on #ollie: idle, thinking, explain, happy, oops, sleepy. -->
-                        <svg class="ollie-svg" viewBox="0 0 200 210" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <!-- Pet mode: Ollie answers in a speech bubble -->
+                <div class="stage">
+                    <div class="speech" id="ollie-speech" aria-live="polite">
+                        <p class="speech-question" id="speech-question" hidden></p>
+                        <div class="speech-text" id="ollie-says">Hi! Let me check your day...</div>
+                        <div class="speech-extras" id="speech-extras"></div>
+                    </div>
+                    <span class="speech-tail" aria-hidden="true"></span>
+                    <button class="ollie-btn" id="ollie-btn" aria-label="Pet Ollie">
+                        <span class="ollie" id="ollie" data-state="idle">
+                            <!-- Ollie the nerdy cat. Moods are set with data-state on #ollie: idle, thinking, explain, happy, oops, sleepy. -->
+                            <svg class="ollie-svg" viewBox="0 0 240 244" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                                <ellipse class="ollie-shadow" cx="120" cy="238" rx="54" ry="5"/>
 
-                            <ellipse class="ollie-shadow" cx="100" cy="202" rx="62" ry="6"/>
-
-                            <g class="ollie-all">
-                                <!-- Tail (behind the body) -->
-                                <path class="ollie-tail" d="M140 186 C172 190 186 166 176 146 C170 134 158 138 162 148"/>
-
-                                <!-- Body -->
-                                <path class="ollie-body" d="M52 198 C46 160 66 134 100 134 C134 134 154 160 148 198 Z"/>
-                                <path class="ollie-chest" d="M80 198 C78 168 88 152 100 152 C112 152 122 168 120 198 Z"/>
-                                <g class="ollie-feet">
-                                    <ellipse cx="80" cy="196" rx="14" ry="8"/>
-                                    <ellipse cx="120" cy="196" rx="14" ry="8"/>
-                                    <path class="ollie-toes" d="M76 193 L76 199 M84 193 L84 199 M116 193 L116 199 M124 193 L124 199"/>
-                                </g>
-
-                                <!-- Head and everything on it moves together -->
-                                <g class="ollie-head">
-                                    <g class="ollie-ear ollie-ear-left">
-                                        <path class="ollie-ear-out" d="M46 74 L40 22 C40 17 45 15 49 18 L84 46 Z"/>
-                                        <path class="ollie-ear-in" d="M52 62 L48 31 L73 48 Z"/>
-                                    </g>
-                                    <g class="ollie-ear ollie-ear-right">
-                                        <path class="ollie-ear-out" d="M154 74 L160 22 C160 17 155 15 151 18 L116 46 Z"/>
-                                        <path class="ollie-ear-in" d="M148 62 L152 31 L127 48 Z"/>
+                                <g class="ollie-all">
+                                    <!-- Small chubby body (drawn first, the big head sits on top of it) -->
+                                    <g class="ollie-body-group">
+                                        <path class="ollie-body" d="M80 238 C70 202 92 170 120 170 C148 170 170 202 160 238 Z"/>
+                                        <ellipse class="ollie-paw-front" cx="103" cy="235" rx="14" ry="8"/>
+                                        <ellipse class="ollie-paw-front" cx="137" cy="235" rx="14" ry="8"/>
                                     </g>
 
-                                    <path class="ollie-face" d="M100 34 C142 34 170 58 172 94 C174 118 162 140 134 148 C118 153 82 153 66 148 C38 140 26 118 28 94 C30 58 58 34 100 34 Z"/>
+                                    <!-- The big head -->
+                                    <g class="ollie-head">
+                                        <g class="ollie-ear ollie-ear-left">
+                                            <path class="ollie-ear-out" d="M38 84 L32 24 C32 15 40 12 47 17 L94 48 Z"/>
+                                            <path class="ollie-ear-in" d="M46 70 L42 32 L80 52 Z"/>
+                                        </g>
+                                        <g class="ollie-ear ollie-ear-right">
+                                            <path class="ollie-ear-out" d="M202 84 L208 24 C208 15 200 12 193 17 L146 48 Z"/>
+                                            <path class="ollie-ear-in" d="M194 70 L198 32 L160 52 Z"/>
+                                        </g>
 
-                                    <g class="ollie-stripes">
-                                        <path d="M91 44 L93 58"/><path d="M100 41 L100 58"/><path d="M109 44 L107 58"/>
-                                        <path d="M32 94 L47 96"/><path d="M34 106 L48 106"/>
-                                        <path d="M168 94 L153 96"/><path d="M166 106 L152 106"/>
-                                    </g>
+                                        <path class="ollie-face" d="M120 34 C170 34 210 60 215 104 C220 146 196 176 158 182 C140 185 100 185 82 182 C44 176 20 146 25 104 C30 60 70 34 120 34 Z"/>
+                                        <!-- warm peach patch on the forehead, like the photos -->
+                                        <path class="ollie-forehead" d="M84 44 C100 37 140 37 156 44 C150 60 136 70 120 72 C104 70 90 60 84 44 Z"/>
 
-                                    <ellipse class="ollie-blush" cx="52" cy="122" rx="10" ry="6"/>
-                                    <ellipse class="ollie-blush" cx="148" cy="122" rx="10" ry="6"/>
-
-                                    <g class="ollie-muzzle">
-                                        <ellipse cx="88" cy="126" rx="16" ry="12"/>
-                                        <ellipse cx="112" cy="126" rx="16" ry="12"/>
-                                    </g>
-                                    <path class="ollie-nose" d="M93 114 Q100 111 107 114 Q104 120 100 121 Q96 120 93 114 Z"/>
-                                    <path class="ollie-mouth" d="M100 121 L100 126 M100 126 C97 130 92 130 89 127 M100 126 C103 130 108 130 111 127"/>
-
-                                    <!-- Buck teeth: pop out when Ollie explains something -->
-                                    <g class="ollie-teeth">
-                                        <rect x="94" y="127" width="6" height="9" rx="1.6"/>
-                                        <rect x="100" y="127" width="6" height="9" rx="1.6"/>
-                                    </g>
-
-                                    <g class="ollie-whiskers">
-                                        <path d="M72 122 L42 117"/><path d="M72 128 L44 131"/>
-                                        <path d="M128 122 L158 117"/><path d="M128 128 L156 131"/>
-                                    </g>
-
-                                    <!-- Eyes (open). Each .ollie-look is moved by main.js so the eyes follow your mouse -->
-                                    <g class="ollie-eyes">
-                                        <g class="ollie-eye">
-                                            <g class="ollie-look">
-                                                <circle class="ollie-iris" cx="76" cy="92" r="11"/>
-                                                <circle class="ollie-glint" cx="80" cy="87.5" r="3.6"/>
-                                                <circle class="ollie-glint" cx="72.5" cy="95.5" r="1.6"/>
+                                        <!-- Big dark eyes. Each .ollie-look is moved by main.js so the eyes follow your mouse -->
+                                        <g class="ollie-eyes">
+                                            <g class="ollie-eye">
+                                                <circle class="ollie-eye-white" cx="80" cy="103" r="22"/>
+                                                <g class="ollie-look">
+                                                    <circle class="ollie-iris" cx="81" cy="102" r="19.5"/>
+                                                    <circle class="ollie-pupil" cx="81" cy="102" r="13"/>
+                                                    <circle class="ollie-glint" cx="89" cy="94" r="6"/>
+                                                    <circle class="ollie-glint" cx="73" cy="108" r="2.4"/>
+                                                </g>
+                                            </g>
+                                            <g class="ollie-eye">
+                                                <circle class="ollie-eye-white" cx="160" cy="103" r="22"/>
+                                                <g class="ollie-look">
+                                                    <circle class="ollie-iris" cx="159" cy="102" r="19.5"/>
+                                                    <circle class="ollie-pupil" cx="159" cy="102" r="13"/>
+                                                    <circle class="ollie-glint" cx="167" cy="94" r="6"/>
+                                                    <circle class="ollie-glint" cx="153" cy="108" r="2.4"/>
+                                                </g>
                                             </g>
                                         </g>
-                                        <g class="ollie-eye">
-                                            <g class="ollie-look">
-                                                <circle class="ollie-iris" cx="124" cy="92" r="11"/>
-                                                <circle class="ollie-glint" cx="128" cy="87.5" r="3.6"/>
-                                                <circle class="ollie-glint" cx="120.5" cy="95.5" r="1.6"/>
-                                            </g>
+                                        <g class="ollie-eyes-happy">
+                                            <path d="M64 106 Q80 88 96 106"/><path d="M144 106 Q160 88 176 106"/>
                                         </g>
-                                    </g>
-                                    <g class="ollie-eyes-happy">
-                                        <path d="M65 95 Q76 83 87 95"/><path d="M113 95 Q124 83 135 95"/>
-                                    </g>
-                                    <g class="ollie-eyes-closed">
-                                        <path d="M65 92 Q76 99 87 92"/><path d="M113 92 Q124 99 135 92"/>
-                                    </g>
+                                        <g class="ollie-eyes-closed">
+                                            <path d="M64 102 Q80 112 96 102"/><path d="M144 102 Q160 112 176 102"/>
+                                        </g>
 
-                                    <!-- Big nerdy glasses -->
-                                    <g class="ollie-glasses">
-                                        <circle class="ollie-lens" cx="76" cy="92" r="22"/>
-                                        <circle class="ollie-lens" cx="124" cy="92" r="22"/>
-                                        <path class="ollie-frame" d="M98 89 Q100 85 102 89"/>
-                                        <path class="ollie-frame" d="M54 88 L36 83"/>
-                                        <path class="ollie-frame" d="M146 88 L164 83"/>
-                                        <path class="ollie-glare" d="M62 82 Q68 75 77 74"/>
-                                        <path class="ollie-glare" d="M110 82 Q116 75 125 74"/>
-                                    </g>
+                                        <!-- Black rectangular nerd glasses -->
+                                        <g class="ollie-glasses">
+                                            <rect class="ollie-lens" x="44" y="78" width="72" height="50" rx="11"/>
+                                            <rect class="ollie-lens" x="124" y="78" width="72" height="50" rx="11"/>
+                                            <path class="ollie-frame-top" d="M42 82 L118 82 M122 82 L198 82"/>
+                                            <path class="ollie-frame" d="M116 92 Q120 86 124 92"/>
+                                            <path class="ollie-frame" d="M44 90 L22 84 M196 90 L218 84"/>
+                                            <circle class="ollie-rivet" cx="50" cy="84" r="2"/>
+                                            <circle class="ollie-rivet" cx="190" cy="84" r="2"/>
+                                            <path class="ollie-glare" d="M54 118 L70 90 M130 118 L146 90"/>
+                                        </g>
 
-                                    <!-- Sweat drop for "oops" -->
-                                    <path class="ollie-sweat" d="M162 58 C158 66 156 70 160 73 C164 76 168 72 166 66 Z"/>
+                                        <!-- Puffy white muzzle, big pink nose, buck teeth (always out) -->
+                                        <g class="ollie-muzzle">
+                                            <ellipse cx="106" cy="160" rx="20" ry="14"/>
+                                            <ellipse cx="134" cy="160" rx="20" ry="14"/>
+                                        </g>
+                                        <g class="ollie-whiskers">
+                                            <path d="M90 152 L34 142"/><path d="M90 158 L36 162"/><path d="M92 165 L44 180"/>
+                                            <path d="M150 152 L206 142"/><path d="M150 158 L204 162"/><path d="M148 165 L196 180"/>
+                                        </g>
+                                        <path class="ollie-nose" d="M97 131 Q120 119 143 131 Q142 148 126 154 Q120 156 114 154 Q98 148 97 131 Z"/>
+                                        <ellipse class="ollie-nose-shine" cx="112" cy="130" rx="8" ry="3.4"/>
+                                        <path class="ollie-mouth" d="M120 155 L120 158 M120 158 C115 162 108 162 103 159 M120 158 C125 162 132 162 137 159"/>
+                                        <g class="ollie-teeth">
+                                            <rect x="108.5" y="158" width="11.5" height="17" rx="3"/>
+                                            <rect x="120" y="158" width="11.5" height="17" rx="3"/>
+                                        </g>
+
+                                        <path class="ollie-sweat" d="M206 62 C201 72 199 77 204 81 C209 85 214 80 212 72 Z"/>
+                                    </g>
                                 </g>
+                            </svg>
+                            <span class="ollie-finger" aria-hidden="true">☝️</span>
+                            <span class="ollie-thought"><span></span><span></span><span></span></span>
+                            <span class="ollie-zzz"><span>z</span><span>z</span><span>Z</span></span>
+                        </span>
+                    </button>
+                </div>
 
-                                <!-- The "um, actually" paw: hidden until Ollie explains -->
-                                <g class="ollie-paw">
-                                    <path class="ollie-arm" d="M146 166 C162 156 174 138 178 118"/>
-                                    <!-- the toe on the face side sticks up like a pointing finger: "um, actually..."
-                                         (on the side, not the middle, so it can't be mistaken for a rude gesture) -->
-                                    <rect class="ollie-finger" x="164" y="72" width="12" height="34" rx="6"/>
-                                    <ellipse class="ollie-bean" cx="170" cy="79" rx="3.3" ry="4"/>
-                                    <circle class="ollie-paw-ball" cx="179" cy="108" r="15"/>
-                                    <ellipse class="ollie-bean" cx="181" cy="113" rx="6" ry="4.6"/>
-                                    <circle class="ollie-bean" cx="182" cy="101" r="2.4"/>
-                                    <circle class="ollie-bean" cx="189" cy="106" r="2.4"/>
-                                </g>
-                            </g>
-                        </svg>
-                        <span class="ollie-thought"><span></span><span></span><span></span></span>
-                        <span class="ollie-zzz"><span>z</span><span>z</span><span>Z</span></span>
+                <!-- Chat mode: the whole conversation -->
+                <div class="agent-messages" id="agent-messages" aria-live="polite"></div>
+
+                <!-- Quick ideas: click one to ask it -->
+                <div class="suggestions" aria-label="Ideas to ask">
+                    <button class="suggestion">What's due this week?</button>
+                    <button class="suggestion">Quiz me on my notes</button>
+                    <button class="suggestion">Explain GET vs POST from my notes</button>
+                </div>
+
+                <div class="agent-input-area composer">
+                    <label class="visually-hidden" for="agent-input">Ask Ollie</label>
+                    <input type="text" id="agent-input" placeholder="Ask Ollie about your notes or deadlines..." autocomplete="off">
+                    <button class="send-btn" id="agent-send" aria-label="Send">
+                        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <!-- Long-term memory: what Ollie remembers about you, with a button to forget each one -->
+                <details class="memory-box" id="memory-box">
+                    <summary><i class="fa-solid fa-brain" aria-hidden="true"></i> Ollie remembers (<span id="memory-count">0</span>)</summary>
+                    <ul id="memory-list"></ul>
+                </details>
+            </section>
+        </main>
+            <!-- ===== Chill corner: music, sounds, focus timer, notes ===== -->
+            <div class="chill-dock" id="chill-dock" role="group" aria-label="Chill corner">
+                <button class="dock-btn" data-pop="music" aria-expanded="false" aria-controls="pop-music">
+                    <i class="fa-solid fa-music" aria-hidden="true"></i> <span class="dock-label">Lo-fi</span>
+                    <span class="dock-live" aria-hidden="true"></span>
+                </button>
+                <button class="dock-btn" data-pop="sounds" aria-expanded="false" aria-controls="pop-sounds">
+                    <i class="fa-solid fa-cloud-rain" aria-hidden="true"></i> <span class="dock-label">Sounds</span>
+                    <span class="dock-live" aria-hidden="true"></span>
+                </button>
+
+                <!-- Focus timer: 25 min focus, 5 min break -->
+                <div class="timer" id="timer">
+                    <span class="timer-mode" id="timer-mode">Focus</span>
+                    <span class="timer-time" id="timer-time" role="timer" aria-live="off">25:00</span>
+                    <button class="timer-btn" id="timer-toggle" aria-label="Start the focus timer">
+                        <i class="fa-solid fa-play" aria-hidden="true"></i>
+                    </button>
+                    <button class="timer-btn" id="timer-reset" aria-label="Reset the timer">
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                    </button>
+                    <span class="timer-count" id="timer-count" title="Focus sessions done today">
+                        <i class="fa-solid fa-fire" aria-hidden="true"></i> <span id="timer-count-num">0</span>
                     </span>
+                </div>
+
+                <button class="dock-btn" data-pop="notes" aria-expanded="false" aria-controls="pop-notes">
+                    <i class="fa-regular fa-note-sticky" aria-hidden="true"></i> <span class="dock-label">Notes</span>
                 </button>
             </div>
 
-            <!-- Chat mode: the whole conversation -->
-            <div class="agent-messages" id="agent-messages" aria-live="polite"></div>
+            <!-- Lo-fi radio. YouTube's rules say the player must stay visible, so music plays while this is open. -->
+            <section class="dock-pop" id="pop-music" role="dialog" aria-labelledby="pop-music-title" hidden>
+                <div class="pop-head">
+                    <h3 id="pop-music-title"><i class="fa-solid fa-music" aria-hidden="true"></i> Lo-fi radio</h3>
+                    <button class="icon-btn pop-close" aria-label="Close the radio (stops the music)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                </div>
+                <div class="stations" id="stations" role="group" aria-label="Your stations"></div>
+                <div class="radio-player" id="radio-player">
+                    <p class="radio-empty">Paste a YouTube link below (a lo-fi live stream works great). It's saved as a station for next time.</p>
+                </div>
+                <form class="radio-link" id="radio-link">
+                    <label class="visually-hidden" for="radio-url">Or paste a YouTube link</label>
+                    <input type="url" id="radio-url" placeholder="Or paste any YouTube link..." autocomplete="off">
+                    <button class="btn btn-soft" type="submit">Play</button>
+                </form>
+                <p class="pop-hint">Music plays while this window is open. <a href="https://www.youtube.com/results?search_query=lofi+live+stream" target="_blank" rel="noopener">Find a stream on YouTube</a></p>
+            </section>
 
-            <!-- Quick ideas: click one to ask it -->
-            <div class="suggestions" aria-label="Ideas to ask">
-                <button class="suggestion">What's due this week?</button>
-                <button class="suggestion">Quiz me on my notes</button>
-                <button class="suggestion">Explain GET vs POST from my notes</button>
-            </div>
+            <!-- Ambient sounds, made live in your browser (no sound files) -->
+            <section class="dock-pop" id="pop-sounds" role="dialog" aria-labelledby="pop-sounds-title" hidden>
+                <div class="pop-head">
+                    <h3 id="pop-sounds-title"><i class="fa-solid fa-cloud-rain" aria-hidden="true"></i> Cozy sounds</h3>
+                    <button class="icon-btn pop-close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                </div>
+                <div class="sound-list">
+                    <div class="sound-row">
+                        <button class="sound-toggle" data-sound="rain" aria-pressed="false"><i class="fa-solid fa-cloud-rain" aria-hidden="true"></i> Rain</button>
+                        <input type="range" class="sound-volume" data-sound="rain" min="0" max="1" step="0.05" value="0.5" aria-label="Rain volume">
+                    </div>
+                    <div class="sound-row">
+                        <button class="sound-toggle" data-sound="fire" aria-pressed="false"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i> Fireplace</button>
+                        <input type="range" class="sound-volume" data-sound="fire" min="0" max="1" step="0.05" value="0.5" aria-label="Fireplace volume">
+                    </div>
+                    <div class="sound-row">
+                        <button class="sound-toggle" data-sound="wind" aria-pressed="false"><i class="fa-solid fa-wind" aria-hidden="true"></i> Wind</button>
+                        <input type="range" class="sound-volume" data-sound="wind" min="0" max="1" step="0.05" value="0.4" aria-label="Wind volume">
+                    </div>
+                </div>
+                <p class="pop-hint">Mix them with the lo-fi radio. They keep playing when you close this.</p>
+            </section>
 
-            <div class="agent-input-area composer">
-                <label class="visually-hidden" for="agent-input">Ask Ollie</label>
-                <input type="text" id="agent-input" placeholder="Ask Ollie about your notes or deadlines..." autocomplete="off">
-                <button class="send-btn" id="agent-send" aria-label="Send">
-                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
-                </button>
-            </div>
-
-            <!-- Long-term memory: what Ollie remembers about you, with a button to forget each one -->
-            <details class="memory-box" id="memory-box">
-                <summary><i class="fa-solid fa-brain" aria-hidden="true"></i> Ollie remembers (<span id="memory-count">0</span>)</summary>
-                <ul id="memory-list"></ul>
-            </details>
-        </section>
-    </main>
+            <!-- Quick notes: saved in this browser automatically -->
+            <section class="dock-pop" id="pop-notes" role="dialog" aria-labelledby="pop-notes-title" hidden>
+                <div class="pop-head">
+                    <h3 id="pop-notes-title"><i class="fa-regular fa-note-sticky" aria-hidden="true"></i> Quick notes</h3>
+                    <button class="icon-btn pop-close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                </div>
+                <label class="visually-hidden" for="quick-notes">Quick notes</label>
+                <textarea id="quick-notes" rows="8" placeholder="Jot anything down... it saves by itself."></textarea>
+                <div class="notes-foot">
+                    <span class="pop-hint" id="notes-status">Saved on this device.</span>
+                    <button class="btn btn-soft" id="clear-notes"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Clear</button>
+                </div>
+            </section>
+    </div>
 
     <!-- ===== The drawer: lecture notes Ollie has read, and PDF upload ===== -->
     <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
@@ -372,6 +439,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=20"></script>
+    <script src="main.js?v=24"></script>
 </body>
 </html>
