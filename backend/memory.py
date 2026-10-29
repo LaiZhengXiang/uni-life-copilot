@@ -7,7 +7,7 @@ The AI forgets everything between calls, so WE remember for it, in the database:
 - Long-term memory: preferences like "I don't study after 11pm", added to the instructions every time.
 """
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -40,8 +40,12 @@ def save_message(conversation_id: str, role: str, content: str) -> None:
         db.close()
 
 
-def load_history(conversation_id: str, limit: int = HISTORY_MESSAGES) -> List[HistoryMessage]:
-    """The last `limit` messages of this conversation, oldest first."""
+def load_history(conversation_id: str, limit: int = HISTORY_MESSAGES,
+                 max_chars: Optional[int] = MAX_MESSAGE_CHARS) -> List[HistoryMessage]:
+    """
+    The last `limit` messages of this conversation, oldest first.
+    max_chars cuts long messages to save the AI's tokens; pass None to get them in full (for showing in the chat).
+    """
     db = SessionLocal()
     try:
         rows = (
@@ -53,7 +57,7 @@ def load_history(conversation_id: str, limit: int = HISTORY_MESSAGES) -> List[Hi
         )
     finally:
         db.close()
-    return [HistoryMessage(role=r.role, content=r.content[:MAX_MESSAGE_CHARS]) for r in reversed(rows)]
+    return [HistoryMessage(role=r.role, content=r.content[:max_chars]) for r in reversed(rows)]
 
 
 def clear_history(conversation_id: str) -> None:

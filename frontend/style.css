@@ -1097,3 +1097,25 @@ body {
     white-space: pre;
 }
 .code-block code { background: none; padding: 0; }
+
+/* Tables in chat answers: scroll sideways inside the bubble if they're wide */
+.table-wrap {
+    overflow-x: auto;
+    margin: 0.5rem 0;
+}
+.table-wrap table {
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    min-width: 100%;
+}
+.table-wrap th,
+.table-wrap td {
+    border: 1px solid var(--glass-border);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+}
+.table-wrap th {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+}

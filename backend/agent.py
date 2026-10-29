@@ -362,6 +362,8 @@ def _system_prompt() -> str:
         "When the student tells you a lasting habit or preference, save it with remember_preference, "
         "and use what you remember when you give advice.\n"
         f"What you remember about the student:\n{_preferences_text()}\n"
+        "The chat window is narrow: prefer short bullet lists; only use a table for a small comparison "
+        "(3 columns at most, short cells). "
         "Answer briefly in simple English."
     )
 

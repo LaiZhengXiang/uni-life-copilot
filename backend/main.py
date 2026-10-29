@@ -144,7 +144,8 @@ async def ask_agent(req: agent.AgentRequest):
 async def get_agent_history(conversation_id: str):
     """The messages of a conversation, so the chat still shows them after you refresh the page."""
     # Only the chat bubbles; the "system" notes are just for the AI
-    return [m for m in memory.load_history(conversation_id, limit=50) if m.role in ("user", "assistant")]
+    history = memory.load_history(conversation_id, limit=50, max_chars=None)  # full text for you to read
+    return [m for m in history if m.role in ("user", "assistant")]
 
 @app.delete("/api/agent/history/{conversation_id}")
 async def clear_agent_history(conversation_id: str):

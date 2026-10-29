@@ -261,12 +261,43 @@ document.addEventListener('DOMContentLoaded', () => {
         // splitting with a ( ) group puts the code at the odd positions of the list
         return text.split(/```[\w-]*\n?([\s\S]*?)```/g).map((part, i) => i % 2 === 1
             ? `<pre class="code-block"><code>${escape(part.replace(/\n$/, ''))}</code></pre>`
-            : escape(part)
-                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/^\s*[*-]\s+/gm, '• ')
-                .replace(/\n/g, '<br>')
+            : formatLines(escape(part))
         ).join('');
+    }
+
+    function formatInline(line) {
+        return line
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
+    }
+
+    // Normal text line by line: bullets, and markdown tables like
+    // | Feature | HTTP | HTTPS |
+    // |---------|------|-------|
+    function formatLines(text) {
+        const lines = text.split('\n');
+        const isRow = (line) => /^\s*\|.*\|\s*$/.test(line || '');
+        const isDivider = (line) => /^\s*\|[\s:|-]+\|\s*$/.test(line || '');
+        const cells = (line) => line.trim().slice(1, -1).split('|').map(c => formatInline(c.trim()));
+        const pieces = [];  // { html, block } - block pieces (tables) don't need a <br> around them
+
+        for (let i = 0; i < lines.length; i++) {
+            if (isRow(lines[i]) && isDivider(lines[i + 1])) {
+                const head = cells(lines[i]);
+                const rows = [];
+                i += 2;
+                while (i < lines.length && isRow(lines[i])) rows.push(cells(lines[i++]));
+                i--;
+                pieces.push({ block: true, html: `
+                    <div class="table-wrap"><table>
+                        <thead><tr>${head.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+                        <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+                    </table></div>` });
+            } else {
+                pieces.push({ block: false, html: formatInline(lines[i]).replace(/^\s*[*-]\s+/, '• ') });
+            }
+        }
+        return pieces.map((p, i) => (i > 0 && !p.block && !pieces[i - 1].block ? '<br>' : '') + p.html).join('');
     }
 
     function appendChatMessage(text, isUser = false, isHtml = false) {
