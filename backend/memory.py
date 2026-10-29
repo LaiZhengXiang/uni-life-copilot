@@ -15,7 +15,7 @@ import models
 from database import SessionLocal
 
 HISTORY_MESSAGES = 12      # how many earlier messages we send back (more = more tokens = more 429s)
-MAX_MESSAGE_CHARS = 1500   # long answers get cut so one message can't eat the whole token budget
+MAX_MESSAGE_CHARS = 800    # long answers get cut so one message can't eat the whole token budget
 
 
 class HistoryMessage(BaseModel):

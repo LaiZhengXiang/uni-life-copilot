@@ -23,6 +23,7 @@ from pydantic import BaseModel
 import ai_service
 import memory
 import models
+import rag
 from database import SessionLocal
 from tasks import TaskUpdate, urgency_score
 
@@ -53,11 +54,19 @@ class PendingEdit(BaseModel):
     changes: dict  # only the fields that change, e.g. {"deadline": "2026-11-06T15:00:00"}
 
 
+class Source(BaseModel):
+    """A note the answer was based on, shown under the answer."""
+    title: str
+    course: str
+    page: Optional[int] = None
+
+
 class AgentResponse(BaseModel):
     answer: str
     tools_used: List[ToolUse]  # shown in the UI so you can see the agent "doing" things
     pending_task: Optional[PendingTask] = None  # the UI shows a Save / Cancel card for it
     pending_edit: Optional[PendingEdit] = None  # same idea, for changing an existing task
+    sources: List[Source] = []  # notes found by search_notes, so you can check the answer yourself
 
 
 MAX_ROUNDS = 5  # the most times the AI may ask for tools in one question
@@ -180,6 +189,7 @@ TOOL_FUNCTIONS = {
     "get_deadlines": get_deadlines,
     "add_task": add_task,
     "edit_task": edit_task,
+    "search_notes": rag.search_notes,
     "remember_preference": memory.add_preference,
     "forget_preference": memory.delete_preference,
 }
@@ -264,6 +274,29 @@ TOOLS_MENU = [
     {
         "type": "function",
         "function": {
+            "name": "search_notes",
+            "description": (
+                "Search the student's uploaded lecture notes and assignment PDFs. Returns the most relevant pieces "
+                "with their source title and page. Use it whenever the student asks about course content, "
+                "a concept, an assignment's requirements, or says 'my notes'. "
+                "Search with the key words of the question, e.g. 'difference between GET and POST form methods'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "What to look for, in a few clear words."},
+                    "course": {
+                        "type": "string",
+                        "description": "Optional course code or name to search only that course, e.g. 'BMIT2013'.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "remember_preference",
             "description": (
                 "Save something lasting about the student so you remember it in every future chat, "
@@ -304,8 +337,15 @@ def _system_prompt() -> str:
     today = now.strftime("%A %d %B %Y, %I:%M %p")
     upcoming = "\n".join((now + timedelta(days=i)).strftime("- %A = %Y-%m-%d") for i in range(1, 15))
     return (
-        "You are UniLife Copilot, a friendly study secretary for a university student. "
+        "You are UniLife Copilot, a friendly study buddy for a university student: you help them understand "
+        "their course material and keep on top of their deadlines. "
         f"Today is {today}.\n"
+        "STUDY QUESTIONS: when the student asks about course content, call search_notes first and teach from "
+        "what it finds, in simple words with a small example if helpful. After each fact from the notes, "
+        "cite it like (Chapter 2A: HTML, p.12), or without the page if it has none. "
+        "If search_notes finds nothing useful, say 'Your notes don't cover this' and then explain from general "
+        "knowledge, clearly marked as not from their notes. Never invent what the notes say. "
+        "Questions that have nothing to do with their studies can be answered normally.\n"
         f"Calendar for the next 14 days (copy dates from here, never calculate them yourself):\n{upcoming}\n"
         "'This Friday' or 'next Friday' means the FIRST Friday in this list.\n"
         "Use your tools to look up the student's real data; never make up deadlines. "
@@ -418,6 +458,7 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
     tools_used = []
     pending_task = None
     pending_edit = None
+    sources = []
 
     # THE AGENT LOOP: ask -> run the tools it wants -> ask again ... until it answers in words
     for round_number in range(1, MAX_ROUNDS + 1):
@@ -429,7 +470,7 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
         if not tool_calls:
             print(f"[Agent] Final answer after {round_number} round(s)")
             return AgentResponse(answer=reply.get("content") or "", tools_used=tools_used,
-                                 pending_task=pending_task, pending_edit=pending_edit)
+                                 pending_task=pending_task, pending_edit=pending_edit, sources=sources)
 
         # Run each tool the AI asked for, and add the results to the conversation
         messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": tool_calls})
@@ -442,8 +483,13 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
                 pending_task = PendingTask(**result["task"])  # the UI will show Save / Cancel
             if name == "edit_task" and isinstance(result, dict) and "edit" in result:
                 pending_edit = PendingEdit(**result["edit"])
+            if name == "search_notes" and isinstance(result, dict):
+                for found in result.get("results", []):
+                    source = Source(title=found["source"], course=found["course"], page=found["page"])
+                    if source not in sources:
+                        sources.append(source)
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(result)})
 
     # Not reached (the last round has no tools), but just in case
     return AgentResponse(answer="Sorry, I got stuck. Please ask again.", tools_used=tools_used,
-                         pending_task=pending_task, pending_edit=pending_edit)
+                         pending_task=pending_task, pending_edit=pending_edit, sources=sources)

@@ -44,6 +44,20 @@ class Preference(Base):
     text = Column(String)
     created_at = Column(DateTime, default=datetime.now)
 
+# ---------- RAG: your notes, cut into searchable pieces ----------
+
+class NoteChunk(Base):
+    """One small piece of a PDF, plus its embedding (768 numbers describing what it means)."""
+    __tablename__ = "note_chunks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, index=True)     # which document it came from
+    chunk_index = Column(Integer)             # 0, 1, 2... in reading order
+    page = Column(Integer, nullable=True)     # None for PDFs uploaded before page numbers were saved
+    text = Column(String)
+    embedding = Column(JSON)
+
+
 def add_missing_columns(engine):
     """create_all() only makes NEW tables, so add new columns to your existing tasks.db ourselves."""
     with engine.begin() as conn:

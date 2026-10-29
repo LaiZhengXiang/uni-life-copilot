@@ -1065,3 +1065,35 @@ body {
     padding: 0.1rem 0.3rem;
 }
 .forget-btn:hover { color: var(--text-red); }
+
+/* ---------- RAG: sources under an answer ---------- */
+.sources-box {
+    align-self: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 90%;
+    font-size: 0.72rem;
+}
+.sources-label { color: var(--text-muted); }
+.sources-label i { color: var(--accent-purple); margin-right: 0.2rem; }
+.source-chip {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: var(--text-main);
+}
+
+.code-block {
+    margin: 0.4rem 0;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--glass-border);
+    overflow-x: auto;
+    font-size: 0.8rem;
+    white-space: pre;
+}
+.code-block code { background: none; padding: 0; }

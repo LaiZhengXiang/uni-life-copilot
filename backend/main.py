@@ -6,6 +6,7 @@ import ai_service
 import agent
 import memory
 import models
+import rag
 import tasks
 from database import engine, SessionLocal
 
@@ -64,6 +65,7 @@ async def parse_assignment(file: UploadFile = File(...), db: Session = Depends(g
         assignments = ai_service.parse_assignment(file_bytes)
         
         # Save each parsed document to the database
+        saved = []
         for item in assignments:
             db_task = models.TaskRecord(
                 document_type=item.document_type,
@@ -79,9 +81,18 @@ async def parse_assignment(file: UploadFile = File(...), db: Session = Depends(g
                 raw_text=item.raw_text  # Store the full extracted text for chat
             )
             db.add(db_task)
-        
+            saved.append(db_task)
+
         db.commit()
-        
+
+        # RAG: cut the new PDF into searchable pieces now, so Copilot can answer questions about it.
+        # If that fails (e.g. rate limit), the upload still works: it gets indexed on the next search.
+        for db_task in saved:
+            try:
+                rag.index_task(db_task.id)
+            except rag.RagError as e:
+                print(f"[RAG] Will index '{db_task.title}' later: {e}")
+
         return assignments
     except HTTPException:
         raise
@@ -97,6 +108,7 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
     
     db.delete(task)
     db.commit()
+    rag.delete_task_chunks(task_id)  # so the notes search never quotes a deleted PDF
     return {"message": "Task deleted successfully"}
 
 @app.post("/api/chat", response_model=ai_service.ChatResponse)

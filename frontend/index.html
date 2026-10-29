@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -51,7 +51,7 @@
                 <!-- Upload Panel -->
                 <div class="glass-panel parser-panel">
                     <h2>PDF Document Parser</h2>
-                    <p class="panel-desc">Transform any lecture slide, paper guidelines, or course syllabus into structural visual tasks.</p>
+                    <p class="panel-desc">Upload lecture notes and assignment briefs. Copilot reads them, so you can ask questions about them later.</p>
                     
                     <div class="drop-zone" id="drop-zone">
                         <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
@@ -70,10 +70,10 @@
                             <i class="fa-solid fa-plus"></i> New chat
                         </button>
                     </div>
-                    <p class="panel-desc">Your study secretary. It looks up your real deadlines and remembers this chat.</p>
+                    <p class="panel-desc">Your study buddy. Ask about your notes or your deadlines; it searches your PDFs and remembers this chat.</p>
                     <div class="agent-messages" id="agent-messages"></div>
                     <div class="agent-input-area chat-input-area">
-                        <input type="text" id="agent-input" placeholder="Ask about your deadlines..." autocomplete="off">
+                        <input type="text" id="agent-input" placeholder="Ask about your notes or deadlines..." autocomplete="off">
                         <button class="send-btn" id="agent-send"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
                     <!-- Long-term memory: what Copilot remembers about you, with a button to forget each one -->
@@ -97,8 +97,8 @@
                         <div class="feature-item">
                             <div class="feature-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
                             <div class="feature-text">
-                                <h4>A study secretary that checks for you</h4>
-                                <p>Ask Copilot what's due and it looks up your real deadlines before answering.</p>
+                                <h4>A study buddy that knows your notes</h4>
+                                <p>Ask Copilot to explain a topic and it answers from your own lecture notes, showing which PDF it used.</p>
                             </div>
                         </div>
                     </div>
@@ -162,6 +162,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=5"></script>
+    <script src="main.js?v=7"></script>
 </body>
 </html>

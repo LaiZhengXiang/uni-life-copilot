@@ -65,12 +65,10 @@ class ChatResponse(BaseModel):
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extracts text from a PDF file provided as bytes."""
-    text = ""
-    # Open the PDF from memory using the new pymupdf import
+    # Open the PDF from memory using the new pymupdf import.
+    # Pages are joined with "\f" (a page-break character) so the notes search can tell you the page number.
     with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for page in doc:
-            text += page.get_text() + "\n"
-    return text
+        return "\f".join(page.get_text() for page in doc)
 
 
 

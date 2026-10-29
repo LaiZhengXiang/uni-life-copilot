@@ -253,15 +253,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Turns chat text into safe HTML: escapes tags like <tr> so they show as text,
     // then renders the simple markdown the AI uses (**bold**, `code`, bullet lists)
     function formatChatText(text) {
-        const escaped = text
+        const escape = (t) => t
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
-        return escaped
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/`([^`]+)`/g, '<code>$1</code>')
-            .replace(/^\s*[*-]\s+/gm, '• ')
-            .replace(/\n/g, '<br>');
+        // Code blocks (```html ... ```) keep their lines exactly as written;
+        // splitting with a ( ) group puts the code at the odd positions of the list
+        return text.split(/```[\w-]*\n?([\s\S]*?)```/g).map((part, i) => i % 2 === 1
+            ? `<pre class="code-block"><code>${escape(part.replace(/\n$/, ''))}</code></pre>`
+            : escape(part)
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/^\s*[*-]\s+/gm, '• ')
+                .replace(/\n/g, '<br>')
+        ).join('');
     }
 
     function appendChatMessage(text, isUser = false, isHtml = false) {
@@ -329,6 +334,16 @@ document.addEventListener('DOMContentLoaded', () => {
         agentMessages.appendChild(msgDiv);
         agentMessages.scrollTop = agentMessages.scrollHeight;
         return msgDiv;
+    }
+
+    // RAG: which of your PDFs the answer came from, so you can open them and check
+    function appendSources(sources) {
+        const box = document.createElement('div');
+        box.className = 'sources-box';
+        box.innerHTML = '<span class="sources-label"><i class="fa-solid fa-book-open"></i> From your notes:</span>'
+            + sources.map(s => `<span class="source-chip" title="${escapeHtml(s.course)}">${escapeHtml(s.title)}${s.page ? `, p.${s.page}` : ''}</span>`).join('');
+        agentMessages.appendChild(box);
+        agentMessages.scrollTop = agentMessages.scrollHeight;
     }
 
     // A small badge per tool the agent used, so you can see it "doing" things
@@ -439,6 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appendAgentMessage(formatChatText(data.answer));
             if (data.pending_task) appendPendingTaskCard(data.pending_task);
             if (data.pending_edit) appendPendingEditCard(data.pending_edit);
+            if (data.sources && data.sources.length) appendSources(data.sources);
             if (data.tools_used.some(t => t.name.endsWith('_preference'))) loadMemory();
         } catch (error) {
             console.error(error);
@@ -468,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveId(conversationId);
 
     function showGreeting() {
-        appendAgentMessage('Hi! Try asking: "What\'s due this week?" or "Remember that I don\'t study after 11pm".');
+        appendAgentMessage('Hi! I\'m your study buddy. Try: "Explain GET vs POST from my notes", "What\'s due this week?" or "Remember that I study best in the morning".');
     }
 
     async function loadConversation() {
