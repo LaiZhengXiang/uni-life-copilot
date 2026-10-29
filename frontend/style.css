@@ -1,66 +1,130 @@
 /* =========================================================
-   UniLife Copilot: "cozy light" design
-   Cream paper background, white rounded cards, grape for actions,
-   tangerine for warm highlights, and Mochi the study buddy.
+   UniLife Copilot: "cozy room" design
+   A painted study room sits behind everything and follows the time of day.
+   Panels on top stay calm and readable, so the app still feels like a tool.
+   Ollie's own styles are in ollie.css.
    ========================================================= */
 
+/* ---------- Things that don't change with the time ---------- */
 :root {
-    /* Surfaces */
-    --bg: #FFF7EE;
-    --bg-dot: #F2E2CF;
-    --surface: #FFFFFF;
-    --surface-soft: #FFF3E6;
-    --surface-done: #FBF7F2;
+    --radius-xl: 22px;
+    --radius-lg: 16px;
+    --radius: 12px;
+    --radius-sm: 9px;
 
-    /* Text (all pass 4.5:1 on white and cream) */
-    --ink: #2B2340;
-    --ink-soft: #625A78;
-    --ink-faint: #A49CB8;   /* only for decoration, never for text */
-
-    /* Lines */
-    --line: #F0E3D3;
-    --line-strong: #E3CFB8;
-
-    /* Colours with a meaning */
-    --grape: #6C47FF;        /* main actions */
-    --grape-dark: #5634E0;
-    --grape-soft: #EEE8FF;
-    --grape-line: #D9CEFF;
-    --tangerine: #FF8A4C;    /* warm highlights */
-    --tangerine-soft: #FFEADC;
-    --tangerine-line: #FFD2B6;
-    --tangerine-ink: #A8430D;
-    --mint-soft: #E1F6EC;
-    --mint-line: #BDE8D3;
-    --mint-ink: #146B4A;
-    --mint: #1F9D6B;
-    --sun-soft: #FFF2CF;
-    --sun-ink: #7D5300;
-    --rose: #D93B3B;
-    --rose-soft: #FDE8E8;
-    --rose-ink: #A82020;
-
-    /* Shape */
-    --radius-xl: 24px;
-    --radius-lg: 18px;
-    --radius: 14px;
-    --radius-sm: 10px;
-    --shadow: 0 1px 2px rgba(43, 35, 64, 0.05), 0 8px 24px rgba(43, 35, 64, 0.06);
-    --shadow-pop: 0 16px 40px rgba(43, 35, 64, 0.16);
-    --ring: 0 0 0 4px rgba(108, 71, 255, 0.18);
-
-    /* Type */
     --font-display: 'Fredoka', 'Nunito', system-ui, sans-serif;
     --font-body: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 
-    /* Motion */
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --fast: 160ms;
-    --normal: 240ms;
+    --normal: 260ms;
+    --slow: 900ms;
 
-    /* Tiny Mochi face, used as the chat avatar and in toasts */
-    --mochi-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='14 24 112 100'%3E%3Cpath fill='%23FFE1D3' d='M70 30 C102 30 120 54 120 82 C120 106 99 116 70 116 C41 116 20 106 20 82 C20 54 38 30 70 30 Z'/%3E%3Cellipse fill='%23FFB4A2' cx='40' cy='90' rx='9' ry='5.5'/%3E%3Cellipse fill='%23FFB4A2' cx='100' cy='90' rx='9' ry='5.5'/%3E%3Cellipse fill='%232B2340' cx='54' cy='78' rx='6' ry='7.5'/%3E%3Cellipse fill='%232B2340' cx='86' cy='78' rx='6' ry='7.5'/%3E%3Cpath fill='none' stroke='%232B2340' stroke-width='3.5' stroke-linecap='round' d='M63 92 Q70 99 77 92'/%3E%3C/svg%3E");
+    --blur: blur(16px) saturate(1.2);
+}
+
+/* Tiny Ollie face, used as the chat avatar and in toasts */
+:root {
+    --ollie-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='22 12 156 146'%3E%3Cpath fill='%23E8A055' d='M46 74 L40 22 C40 17 45 15 49 18 L84 46 Z'/%3E%3Cpath fill='%23E8A055' d='M154 74 L160 22 C160 17 155 15 151 18 L116 46 Z'/%3E%3Cpath fill='%23F1A69D' d='M52 62 L48 31 L73 48 Z'/%3E%3Cpath fill='%23F1A69D' d='M148 62 L152 31 L127 48 Z'/%3E%3Cpath fill='%23EFA85C' d='M100 34 C142 34 170 58 172 94 C174 118 162 140 134 148 C118 153 82 153 66 148 C38 140 26 118 28 94 C30 58 58 34 100 34 Z'/%3E%3Cellipse fill='%23FBE7CF' cx='88' cy='126' rx='16' ry='12'/%3E%3Cellipse fill='%23FBE7CF' cx='112' cy='126' rx='16' ry='12'/%3E%3Cpath fill='%23E58A8A' d='M93 114 Q100 111 107 114 Q104 120 100 121 Q96 120 93 114 Z'/%3E%3Ccircle fill='%233A2417' cx='76' cy='92' r='11'/%3E%3Ccircle fill='%233A2417' cx='124' cy='92' r='11'/%3E%3Ccircle fill='%23FFF' cx='80' cy='87.5' r='3.6'/%3E%3Ccircle fill='%23FFF' cx='128' cy='87.5' r='3.6'/%3E%3Ccircle fill='none' stroke='%231E1A1A' stroke-width='6' cx='76' cy='92' r='22'/%3E%3Ccircle fill='none' stroke='%231E1A1A' stroke-width='6' cx='124' cy='92' r='22'/%3E%3Cpath fill='none' stroke='%231E1A1A' stroke-width='5' d='M98 89 Q100 85 102 89'/%3E%3C/svg%3E");
+}
+
+/* ---------- Time-of-day colours ----------
+   Morning and afternoon: light panels, dark text.
+   Evening and night: dark panels, light text.
+   Every text colour passes 4.5:1 on its panel. */
+body[data-time="morning"] {
+    --sky: linear-gradient(180deg, #8EC3EE 0%, #CBE4F6 45%, #F2EADD 100%);
+    --room-shade: linear-gradient(90deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 60%);
+    --surface: rgba(250, 250, 247, 0.88);
+    --surface-solid: #FAFAF7;
+    --surface-soft: rgba(27, 34, 48, 0.05);
+    --surface-done: rgba(27, 34, 48, 0.04);
+    --ink: #1B2230;
+    --ink-soft: #4A5366;
+    --ink-faint: #9AA3B5;
+    --line: rgba(27, 34, 48, 0.10);
+    --line-strong: rgba(27, 34, 48, 0.18);
+    --accent: #2F6BDE;
+    --on-accent: #FFFFFF;
+    --accent-text: #2558C0;
+    --accent-soft: rgba(47, 107, 222, 0.12);
+    --shadow: 0 1px 2px rgba(27, 34, 48, 0.06), 0 10px 30px rgba(27, 34, 48, 0.10);
+}
+body[data-time="afternoon"] {
+    --sky: linear-gradient(180deg, #F0BE73 0%, #F6D8A6 40%, #EBD5BB 100%);
+    --room-shade: linear-gradient(90deg, rgba(255, 240, 220, 0.10), rgba(255, 240, 220, 0) 60%);
+    --surface: rgba(255, 249, 240, 0.88);
+    --surface-solid: #FFF9F0;
+    --surface-soft: rgba(42, 32, 22, 0.05);
+    --surface-done: rgba(42, 32, 22, 0.04);
+    --ink: #2A2016;
+    --ink-soft: #5B4A38;
+    --ink-faint: #B09D88;
+    --line: rgba(42, 32, 22, 0.11);
+    --line-strong: rgba(42, 32, 22, 0.19);
+    --accent: #B5541C;
+    --on-accent: #FFFFFF;
+    --accent-text: #9A4413;
+    --accent-soft: rgba(181, 84, 28, 0.12);
+    --shadow: 0 1px 2px rgba(42, 32, 22, 0.06), 0 10px 30px rgba(42, 32, 22, 0.12);
+}
+body[data-time="evening"] {
+    --sky: linear-gradient(180deg, #2E1D4A 0%, #A6406F 45%, #EE8758 75%, #3A2338 100%);
+    --room-shade: linear-gradient(90deg, rgba(20, 10, 24, 0.35), rgba(20, 10, 24, 0) 65%);
+    --surface: rgba(36, 24, 38, 0.86);
+    --surface-solid: #241826;
+    --surface-soft: rgba(255, 255, 255, 0.06);
+    --surface-done: rgba(255, 255, 255, 0.03);
+    --ink: #FBEFE8;
+    --ink-soft: #D9C5CC;
+    --ink-faint: #8E7680;
+    --line: rgba(255, 255, 255, 0.10);
+    --line-strong: rgba(255, 255, 255, 0.18);
+    --accent: #FF9F6B;
+    --on-accent: #2A1206;
+    --accent-text: #FFB48C;
+    --accent-soft: rgba(255, 159, 107, 0.16);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+body[data-time="night"] {
+    --sky:
+        radial-gradient(1.5px 1.5px at 20% 18%, #FFFFFF 50%, transparent 51%),
+        radial-gradient(1px 1px at 63% 12%, #FFFFFF 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 82% 28%, #DDE6FF 50%, transparent 51%),
+        radial-gradient(1px 1px at 41% 33%, #FFFFFF 50%, transparent 51%),
+        linear-gradient(180deg, #060A18 0%, #121B39 55%, #1C2340 100%);
+    --room-shade: linear-gradient(90deg, rgba(4, 7, 18, 0.35), rgba(4, 7, 18, 0) 65%);
+    --surface: rgba(12, 17, 33, 0.86);
+    --surface-solid: #0C1121;
+    --surface-soft: rgba(255, 255, 255, 0.06);
+    --surface-done: rgba(255, 255, 255, 0.03);
+    --ink: #E7ECF8;
+    --ink-soft: #A8B2CB;
+    --ink-faint: #5E6A86;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-strong: rgba(255, 255, 255, 0.17);
+    --accent: #7EA6FF;
+    --on-accent: #0A1430;
+    --accent-text: #9BB9FF;
+    --accent-soft: rgba(126, 166, 255, 0.16);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* Status colours: one set for light panels, one for dark */
+body[data-time="morning"],
+body[data-time="afternoon"] {
+    color-scheme: light;
+    --rose: #D33A3A;  --rose-soft: #FCE6E6;  --rose-ink: #A11E1E;
+    --mint: #1F9D6B;  --mint-soft: #DFF4EA;  --mint-ink: #126346;
+    --sun-soft: #FFF1CC;  --sun-ink: #765000;
+}
+body[data-time="evening"],
+body[data-time="night"] {
+    color-scheme: dark;
+    --rose: #FF7676;  --rose-soft: rgba(255, 118, 118, 0.16);  --rose-ink: #FFB0B0;
+    --mint: #57D69A;  --mint-soft: rgba(87, 214, 154, 0.15);  --mint-ink: #93E8BE;
+    --sun-soft: rgba(250, 204, 21, 0.15);  --sun-ink: #F6D47F;
 }
 
 /* ---------- Base ---------- */
@@ -79,10 +143,7 @@ body {
     font-size: 16px;
     line-height: 1.55;
     color: var(--ink);
-    background-color: var(--bg);
-    /* Faint dots, like a bullet-journal page */
-    background-image: radial-gradient(var(--bg-dot) 1.2px, transparent 1.2px);
-    background-size: 22px 22px;
+    background: #1A1A22;
     min-height: 100dvh;
 }
 
@@ -94,17 +155,18 @@ h1, h2, h3, h4 {
 
 button,
 input,
-textarea {
+textarea,
+select {
     font: inherit;
     color: inherit;
 }
 
-button { cursor: pointer; }
+button { cursor: pointer; background: none; border: none; }
 
-a { color: var(--grape-dark); }
+a { color: var(--accent-text); }
 
 :focus-visible {
-    outline: 3px solid var(--grape);
+    outline: 3px solid var(--accent);
     outline-offset: 2px;
     border-radius: 6px;
 }
@@ -132,12 +194,46 @@ a { color: var(--grape-dark); }
     z-index: 300;
     padding: 10px 16px;
     border-radius: var(--radius-sm);
-    background: var(--ink);
-    color: #fff;
+    background: var(--surface-solid);
+    color: var(--ink);
     font-weight: 700;
     text-decoration: none;
 }
 .skip-link:focus { top: 12px; }
+
+/* ---------- The room ---------- */
+.room {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+}
+.room-art {
+    position: absolute;
+    inset: 0;
+    /* Your painted room on top; the sky gradient shows until the picture exists */
+    background-size: cover;
+    background-position: center 40%;
+    transition: background-image var(--slow);
+}
+body[data-time="morning"] .room-art { background-image: url("assets/room/room-morning.webp"), var(--sky); }
+body[data-time="afternoon"] .room-art { background-image: url("assets/room/room-afternoon.webp"), var(--sky); }
+body[data-time="evening"] .room-art { background-image: url("assets/room/room-evening.webp"), var(--sky); }
+body[data-time="night"] .room-art { background-image: url("assets/room/room-night.webp"), var(--sky); }
+
+/* No night picture yet? Use the sunset room, darkened and tinted blue (main.js checks) */
+body[data-time="night"][data-night-art="missing"] .room-art {
+    background-image: url("assets/room/room-evening.webp"), var(--sky);
+    filter: brightness(0.5) saturate(0.7);
+}
+body[data-time="night"][data-night-art="missing"] .room-shade {
+    background: linear-gradient(180deg, rgba(10, 18, 52, 0.55), rgba(6, 10, 30, 0.45)), var(--room-shade);
+}
+.room-shade {
+    position: absolute;
+    inset: 0;
+    background: var(--room-shade);
+}
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -153,37 +249,30 @@ a { color: var(--grape-dark); }
     font-size: 0.9rem;
     text-decoration: none;
     white-space: nowrap;
-    transition: background-color var(--fast), color var(--fast), border-color var(--fast), transform var(--fast);
+    transition: background-color var(--fast), color var(--fast), border-color var(--fast), transform var(--fast), filter var(--fast);
 }
 .btn:active { transform: scale(0.97); }
-
-.btn-primary { background: var(--grape); color: #fff; }
-.btn-primary:hover { background: var(--grape-dark); }
-
-.btn-soft {
-    background: var(--surface);
-    color: var(--ink);
-    border-color: var(--line-strong);
-}
-.btn-soft:hover { border-color: var(--grape); color: var(--grape-dark); }
-
-.btn-ghost { background: transparent; color: var(--ink); }
-.btn-ghost:hover { background: var(--surface-soft); }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-soft { background: var(--surface-soft); color: var(--ink); border-color: var(--line-strong); }
+.btn-soft:hover { border-color: var(--accent); color: var(--accent-text); }
 
 .icon-btn {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex: none;
     width: 40px;
     height: 40px;
     border-radius: 50%;
     border: 1px solid var(--line-strong);
-    background: var(--surface);
+    background: var(--surface-soft);
     color: var(--ink);
-    transition: background-color var(--fast), border-color var(--fast);
+    text-decoration: none;
+    transition: background-color var(--fast), border-color var(--fast), color var(--fast);
 }
-.icon-btn:hover { background: var(--surface-soft); }
+.icon-btn:hover { border-color: var(--accent); color: var(--accent-text); }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -194,11 +283,11 @@ a { color: var(--grape-dark); }
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    height: 68px;
-    padding: 0 max(24px, calc((100% - 1320px) / 2 + 24px));
-    background: rgba(255, 247, 238, 0.88);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    height: 64px;
+    padding: 0 max(24px, calc((100% - 1440px) / 2 + 24px));
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
     border-bottom: 1px solid var(--line);
 }
 
@@ -209,27 +298,48 @@ a { color: var(--grape-dark); }
     color: var(--ink);
     text-decoration: none;
 }
-.brand-mochi { width: 40px; height: 38px; }
-.brand-name {
+.brand-ollie { display: block; width: 38px; }
+.brand-ollie .ollie-svg { width: 100%; height: auto; }
+.brand-name { font-family: var(--font-display); font-weight: 500; font-size: 1.2rem; }
+.brand-name strong { font-weight: 600; color: var(--accent-text); }
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+.room-clock {
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: 1.2rem;
-}
-.brand-name strong { font-weight: 600; color: var(--grape); }
-
-.topbar-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+    padding: 0 4px;
 }
 
-.user-chip {
-    display: flex;
+.light-switch {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    height: 40px;
+    padding: 0 6px 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-soft);
+    color: var(--ink);
+    cursor: pointer;
+}
+.light-switch i { color: var(--accent-text); }
+.light-switch:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.light-switch select {
+    height: 100%;
+    padding: 0 6px;
+    border: none;
+    outline: none;
+    background: transparent;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
+    cursor: pointer;
 }
+.light-switch option { color: #1B2230; background: #FFFFFF; }
+
+.user-chip { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; }
 .avatar {
     display: inline-flex;
     align-items: center;
@@ -237,8 +347,8 @@ a { color: var(--grape-dark); }
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: var(--tangerine-soft);
-    color: var(--tangerine-ink);
+    background: var(--accent-soft);
+    color: var(--accent-text);
     font-family: var(--font-display);
     font-weight: 600;
 }
@@ -254,13 +364,12 @@ a { color: var(--grape-dark); }
     padding: 0 5px;
     border-radius: 999px;
     background: var(--rose);
-    color: #fff;
+    color: #FFFFFF;
     font-size: 0.7rem;
     font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid var(--bg);
 }
 .bell-count[hidden] { display: none; }
 .bell-dropdown {
@@ -272,18 +381,18 @@ a { color: var(--grape-dark); }
     padding: 14px;
     border-radius: var(--radius-lg);
     border: 1px solid var(--line);
-    background: var(--surface);
-    box-shadow: var(--shadow-pop);
+    background: var(--surface-solid);
+    box-shadow: var(--shadow);
 }
 .bell-dropdown[hidden] { display: none; }
 .bell-dropdown h4 {
+    margin-bottom: 6px;
     font-family: var(--font-body);
     font-size: 0.72rem;
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 6px;
 }
 .bell-dropdown p { font-size: 0.9rem; color: var(--ink-soft); }
 .bell-item {
@@ -294,587 +403,65 @@ a { color: var(--grape-dark); }
     border-top: 1px solid var(--line);
     font-size: 0.9rem;
 }
-.bell-item span { font-size: 0.8rem; font-weight: 700; color: var(--tangerine-ink); }
+.bell-item span { font-size: 0.8rem; font-weight: 700; color: var(--accent-text); }
 
-/* ---------- Page layout ---------- */
+/* ---------- Layout: tasks big on the left, Ollie on the right ---------- */
 .layout {
-    max-width: 1320px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 24px;
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr);
+    grid-template-columns: minmax(0, 1fr) 400px;
     gap: 24px;
     align-items: start;
 }
 
-.card {
+.panel {
     background: var(--surface);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
     border: 1px solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow);
     padding: 20px;
-}
-
-.side {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
     min-width: 0;
 }
 
-/* ---------- Mochi's chat ---------- */
-.buddy {
-    position: sticky;
-    top: 92px;
-    height: calc(100dvh - 116px);
-    min-height: 560px;
+/* ---------- Tasks ---------- */
+.panel-head {
     display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.buddy-hero {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 16px 12px 10px;
-    border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--grape-soft) 0%, var(--tangerine-soft) 100%);
-}
-
-.buddy-intro { flex: 1; min-width: 0; }
-.buddy-intro h1 { font-size: 1.5rem; }
-.buddy-role {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 2px 10px;
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--grape-dark);
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    font-weight: 800;
-    vertical-align: middle;
-}
-
-/* Mochi's speech bubble */
-.speech {
-    position: relative;
-    display: inline-block;
-    margin-top: 8px;
-    padding: 7px 12px;
-    border-radius: var(--radius);
-    background: var(--surface);
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: var(--ink);
-    box-shadow: 0 2px 6px rgba(43, 35, 64, 0.06);
-}
-.speech::before {
-    content: "";
-    position: absolute;
-    left: -6px;
-    top: 50%;
-    width: 12px;
-    height: 12px;
-    margin-top: -6px;
-    background: var(--surface);
-    transform: rotate(45deg);
-    border-radius: 2px;
-}
-
-.new-chat-btn { align-self: flex-start; }
-
-.agent-messages {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 18px 4px 12px;
-    scroll-behavior: smooth;
-}
-
-/* Chat bubbles (Mochi's chat and the document chat) */
-.chat-message {
-    display: flex;
-    gap: 8px;
-    max-width: 88%;
-}
-.ai-message { align-self: flex-start; }
-.user-message { align-self: flex-end; flex-direction: row-reverse; }
-
-.ai-message::before {
-    content: "";
-    flex: none;
-    width: 32px;
-    height: 32px;
-    margin-top: 2px;
-    border-radius: 50%;
-    background: var(--tangerine-soft) var(--mochi-face) center / 78% no-repeat;
-}
-
-.message-bubble {
-    min-width: 0;
-    padding: 10px 14px;
-    border-radius: var(--radius-lg);
-    font-size: 0.95rem;
-    line-height: 1.55;
-    overflow-wrap: anywhere;
-}
-.ai-message .message-bubble {
-    background: var(--surface-soft);
-    border: 1px solid var(--line);
-    border-top-left-radius: 6px;
-}
-.user-message .message-bubble {
-    background: var(--grape);
-    color: #fff;
-    border-top-right-radius: 6px;
-}
-
-.message-bubble code {
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-    padding: 1px 5px;
-    border-radius: 6px;
-    background: rgba(108, 71, 255, 0.1);
-}
-.user-message .message-bubble code { background: rgba(255, 255, 255, 0.2); }
-
-.code-block {
-    margin: 8px 0;
-    padding: 12px 14px;
-    border-radius: 12px;
-    background: var(--ink);
-    color: #F6F2FF;
-    overflow-x: auto;
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
-    line-height: 1.5;
-    white-space: pre;
-}
-.code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
-
-.table-wrap { overflow-x: auto; margin: 8px 0; }
-.table-wrap table {
-    border-collapse: collapse;
-    min-width: 100%;
-    font-size: 0.82rem;
-    background: var(--surface);
-}
-.table-wrap th,
-.table-wrap td {
-    border: 1px solid var(--line-strong);
-    padding: 6px 9px;
-    text-align: left;
-    vertical-align: top;
-}
-.table-wrap th { background: var(--grape-soft); }
-
-/* What Mochi did: "Searched your notes" etc. */
-.tool-badge {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    margin-left: 40px;
-    padding: 4px 11px;
-    border-radius: 999px;
-    border: 1px solid var(--grape-line);
-    background: var(--grape-soft);
-    color: var(--grape-dark);
-    font-size: 0.78rem;
-    font-weight: 700;
-}
-.tool-badge code {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    font-weight: 400;
-    color: var(--ink-soft);
-}
-
-/* Which notes an answer came from */
-.sources-box {
-    align-self: flex-start;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    max-width: 88%;
-    margin-left: 40px;
-    font-size: 0.76rem;
-}
-.sources-label { font-weight: 700; color: var(--ink-soft); }
-.sources-label i { color: var(--tangerine); margin-right: 3px; }
-.source-chip {
-    padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--tangerine-line);
-    background: var(--tangerine-soft);
-    color: var(--tangerine-ink);
-    font-weight: 700;
-}
-
-/* "Save / Cancel" card when Mochi prepares a task or a change */
-.pending-task-card {
-    align-self: flex-start;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-width: 85%;
-    margin-left: 40px;
-    padding: 12px 14px;
-    border: 2px dashed var(--grape-line);
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    font-size: 0.86rem;
-    color: var(--ink-soft);
-}
-.pending-task-card strong {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 1rem;
-    color: var(--ink);
-}
-.pending-task-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    color: var(--ink);
-    font-weight: 700;
-}
-.save-task-btn,
-.cancel-task-btn,
-.edit-save,
-.edit-cancel {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 36px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    font-size: 0.85rem;
-    font-weight: 700;
-    transition: background-color var(--fast), border-color var(--fast);
-}
-.save-task-btn,
-.edit-save { background: var(--grape); color: #fff; }
-.save-task-btn:hover,
-.edit-save:hover { background: var(--grape-dark); }
-.cancel-task-btn,
-.edit-cancel { background: var(--surface); color: var(--ink-soft); border-color: var(--line-strong); }
-.cancel-task-btn:hover,
-.edit-cancel:hover { color: var(--ink); border-color: var(--ink-faint); }
-
-/* Quick ideas under the chat */
-.suggestions {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 2px 2px 10px;
-    scrollbar-width: none;   /* still scrolls sideways; the cut-off chip shows there's more */
-}
-.suggestions::-webkit-scrollbar { display: none; }
-.suggestion {
-    flex: none;
-    min-height: 36px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--line-strong);
-    background: var(--surface);
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-    font-weight: 700;
-    white-space: nowrap;
-    transition: background-color var(--fast), color var(--fast), border-color var(--fast);
-}
-.suggestion:hover {
-    border-color: var(--grape);
-    background: var(--grape-soft);
-    color: var(--grape-dark);
-}
-
-/* Message box */
-.composer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 5px 5px 8px;
-    border: 2px solid var(--line);
-    border-radius: 999px;
-    background: var(--surface);
-    transition: border-color var(--fast), box-shadow var(--fast);
-}
-.composer:focus-within { border-color: var(--grape); box-shadow: var(--ring); }
-.composer input {
-    flex: 1;
-    min-width: 0;
-    padding: 9px 10px;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 1rem;
-}
-.composer input::placeholder { color: var(--ink-soft); }
-
-.send-btn {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border: none;
-    border-radius: 50%;
-    background: var(--grape);
-    color: #fff;
-    transition: background-color var(--fast), transform var(--fast);
-}
-.send-btn:hover { background: var(--grape-dark); }
-.send-btn:active { transform: scale(0.94); }
-
-/* What Mochi remembers */
-.memory-box {
-    margin-top: 10px;
-    font-size: 0.86rem;
-    color: var(--ink-soft);
-}
-.memory-box summary {
-    display: inline-block;
-    padding: 4px 6px;
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
-    user-select: none;
-}
-.memory-box summary i { color: var(--grape); margin-right: 4px; }
-.memory-box ul {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 6px;
-    max-height: 160px;
-    overflow-y: auto;
-}
-.memory-box li {
-    display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
-    padding: 6px 6px 6px 12px;
-    border-radius: var(--radius-sm);
-    background: var(--grape-soft);
-    color: var(--ink);
+    gap: 12px 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
 }
-.memory-box li.memory-empty { background: none; padding: 2px 6px; color: var(--ink-soft); }
-.forget-btn {
-    flex: none;
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--ink-soft);
-}
-.forget-btn:hover { background: var(--rose-soft); color: var(--rose-ink); }
+.panel-title h2 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+.panel-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* =========================================================
-   Mochi the mascot
-   States (data-state): idle, thinking, happy, oops
-   ========================================================= */
-.mochi {
-    position: relative;
-    flex: none;
-    width: 92px;
-}
-.mochi-svg { display: block; width: 100%; height: auto; overflow: visible; }
-
-.mochi-shadow { fill: rgba(43, 35, 64, 0.1); transform-box: fill-box; transform-origin: center; }
-.mochi-skin { fill: #FFE1D3; }
-.mochi-shine { fill: #FFFFFF; opacity: 0.75; }
-.mochi-blush { fill: #FFB4A2; }
-.mochi-eye ellipse { fill: var(--ink); }
-.mochi-sparkle { fill: #FFFFFF; }
-.mochi-eyes-happy path {
-    fill: none;
-    stroke: var(--ink);
-    stroke-width: 4;
-    stroke-linecap: round;
-}
-.mouth-smile { fill: none; stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
-.mouth-open { fill: #E2575C; stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
-.mouth-o { fill: var(--ink); }
-.cap-base { fill: var(--ink); }
-.cap-top { fill: #3A2F57; }
-.cap-button { fill: var(--tangerine); }
-.cap-string { fill: none; stroke: var(--tangerine); stroke-width: 2.5; }
-.cap-ball { fill: var(--tangerine); }
-
-.mochi-body,
-.mochi-eye,
-.mochi-eyes,
-.cap-tassel { transform-box: fill-box; }
-.mochi-body { transform-origin: 50% 100%; }
-.mochi-eye { transform-origin: center; }
-.mochi-eyes { transform-origin: center; transition: transform var(--normal) var(--ease-out); }
-.cap-tassel { transform-origin: 0% 0%; }
-
-/* Only one face part shows at a time */
-.mochi-eyes-happy,
-.mouth-open,
-.mouth-o { opacity: 0; }
-.mochi-eyes,
-.mochi-eyes-happy,
-.mochi-mouth { transition: opacity var(--fast); }
-
-/* Idle: gentle bob, blinking, swinging tassel */
-.mochi .mochi-body { animation: mochi-bob 3.2s ease-in-out infinite; }
-.mochi .mochi-eye { animation: mochi-blink 5s infinite; }
-.mochi .cap-tassel { animation: tassel-swing 3.2s ease-in-out infinite; }
-
-/* Thinking: looks up, wobbles, little "..." bubble */
-.mochi[data-state="thinking"] .mochi-body { animation: mochi-think 1.1s ease-in-out infinite; }
-.mochi[data-state="thinking"] .mochi-eyes { transform: translate(3px, -4px); }
-.mochi[data-state="thinking"] .mouth-smile { opacity: 0; }
-.mochi[data-state="thinking"] .mouth-o { opacity: 1; }
-.mochi[data-state="thinking"] .mochi-thought { opacity: 1; transform: scale(1); }
-
-/* Happy: ^ ^ eyes, open smile, a little hop */
-.mochi[data-state="happy"] .mochi-body { animation: mochi-hop 0.6s var(--ease-out) 2; }
-.mochi[data-state="happy"] .mochi-eyes { opacity: 0; }
-.mochi[data-state="happy"] .mochi-eyes-happy { opacity: 1; }
-.mochi[data-state="happy"] .mouth-smile { opacity: 0; }
-.mochi[data-state="happy"] .mouth-open { opacity: 1; }
-.mochi[data-state="happy"] .mochi-shadow { animation: shadow-hop 0.6s var(--ease-out) 2; }
-
-/* Oops: squints and shakes when something went wrong */
-.mochi[data-state="oops"] .mochi-body { animation: mochi-shake 0.4s ease-in-out 2; }
-.mochi[data-state="oops"] .mochi-eyes { transform: scaleY(0.45); }
-.mochi[data-state="oops"] .mouth-smile { opacity: 0; }
-.mochi[data-state="oops"] .mouth-o { opacity: 1; }
-
-.mochi-thought {
-    position: absolute;
-    top: 2px;
-    right: -14px;
-    display: flex;
-    gap: 3px;
-    padding: 5px 7px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    box-shadow: 0 2px 6px rgba(43, 35, 64, 0.08);
-    opacity: 0;
-    transform: scale(0.6);
-    transform-origin: bottom left;
-    transition: opacity var(--normal), transform var(--normal) var(--ease-out);
-}
-.mochi-thought span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--grape);
-    animation: dot-bounce 1s ease-in-out infinite;
-}
-.mochi-thought span:nth-child(2) { animation-delay: 0.15s; }
-.mochi-thought span:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes mochi-bob {
-    0%, 100% { transform: translateY(0) scale(1, 1); }
-    50% { transform: translateY(-3px) scale(0.98, 1.03); }
-}
-@keyframes mochi-blink {
-    0%, 91%, 97%, 100% { transform: scaleY(1); }
-    94% { transform: scaleY(0.1); }
-}
-@keyframes tassel-swing {
-    0%, 100% { transform: rotate(-4deg); }
-    50% { transform: rotate(6deg); }
-}
-@keyframes mochi-think {
-    0%, 100% { transform: rotate(-3deg); }
-    50% { transform: rotate(3deg); }
-}
-@keyframes mochi-hop {
-    0% { transform: translateY(0) scale(1, 1); }
-    30% { transform: translateY(-14px) scale(0.95, 1.07); }
-    60% { transform: translateY(0) scale(1.08, 0.92); }
-    100% { transform: translateY(0) scale(1, 1); }
-}
-@keyframes shadow-hop {
-    0%, 100% { transform: scaleX(1); opacity: 1; }
-    30% { transform: scaleX(0.7); opacity: 0.6; }
-}
-@keyframes mochi-shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-3px); }
-    75% { transform: translateX(3px); }
-}
-@keyframes dot-bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
-}
-
-/* ---------- Upload ---------- */
-.upload-card { padding: 14px; }
-.drop-zone {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px;
-    border: 2px dashed var(--line-strong);
-    border-radius: var(--radius-lg);
-    background: var(--surface-soft);
-    transition: border-color var(--fast), background-color var(--fast);
-}
-.drop-zone.dragover { border-color: var(--grape); background: var(--grape-soft); }
-.drop-icon {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--tangerine);
-    font-size: 1.3rem;
-}
-.drop-text { flex: 1; min-width: 0; }
-.drop-text h3 { font-size: 1.05rem; }
-.drop-text p { font-size: 0.84rem; color: var(--ink-soft); line-height: 1.4; }
-
-/* ---------- Tasks and notes lists ---------- */
-.list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-.list-header h2 { font-size: 1.2rem; }
-#tasks-title i { color: var(--grape); margin-right: 4px; }
-#notes-title i { color: var(--tangerine); margin-right: 4px; }
 .count-pill {
+    display: inline-flex;
+    align-items: center;
     padding: 2px 10px;
     border-radius: 999px;
     background: var(--surface-soft);
+    border: 1px solid var(--line);
     color: var(--ink-soft);
-    font-size: 0.8rem;
+    font-family: var(--font-body);
+    font-size: 0.78rem;
     font-weight: 800;
 }
 .count-pill:empty { display: none; }
-.list-hint { margin: 2px 0 14px; font-size: 0.86rem; color: var(--ink-soft); }
+.list-hint { margin-top: 2px; font-size: 0.86rem; color: var(--ink-soft); }
+
+/* Tasks drop target while dragging a PDF over it */
+.tasks-panel.dragover { outline: 2px dashed var(--accent); outline-offset: -8px; }
 
 .cards-layout {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 14px;
+    align-items: start;
 }
 
 /* One task card */
@@ -882,10 +469,10 @@ a { color: var(--grape-dark); }
     padding: 14px 16px;
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
-    background: var(--surface);
-    transition: border-color var(--fast), box-shadow var(--fast);
+    background: var(--surface-soft);
+    transition: border-color var(--fast), transform var(--fast);
 }
-.extraction-col:hover { border-color: var(--line-strong); box-shadow: 0 4px 14px rgba(43, 35, 64, 0.06); }
+.extraction-col:hover { border-color: var(--line-strong); }
 .extraction-col.is-done { background: var(--surface-done); }
 .extraction-col.is-done .card-title { text-decoration: line-through; color: var(--ink-soft); }
 
@@ -910,12 +497,12 @@ a { color: var(--grape-dark); }
     vertical-align: middle;
     background: var(--ink-faint);
 }
-.dot.blue { background: var(--grape); }
+.dot.blue { background: var(--accent); }
 .dot.gray { background: var(--ink-faint); }
 .dot.red-dot { background: var(--rose); }
 .dot.done-dot { background: var(--mint); }
 
-.card-actions { display: flex; gap: 6px; }
+.card-actions { display: flex; gap: 6px; flex: none; }
 .chat-btn,
 .edit-btn,
 .delete-btn {
@@ -928,17 +515,15 @@ a { color: var(--grape-dark); }
     padding: 0 10px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line-strong);
-    background: var(--surface);
+    background: transparent;
     color: var(--ink-soft);
     font-size: 0.8rem;
     font-weight: 700;
     transition: background-color var(--fast), color var(--fast), border-color var(--fast);
 }
-.chat-btn:hover { color: var(--grape-dark); border-color: var(--grape); background: var(--grape-soft); }
-.edit-btn:hover { color: var(--ink); border-color: var(--ink-faint); background: var(--surface-soft); }
+.chat-btn:hover { color: var(--accent-text); border-color: var(--accent); background: var(--accent-soft); }
+.edit-btn:hover { color: var(--ink); border-color: var(--ink-soft); }
 .delete-btn:hover { color: var(--rose-ink); border-color: var(--rose); background: var(--rose-soft); }
-
-.task-card { background: none; }
 
 .card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .tag {
@@ -947,17 +532,18 @@ a { color: var(--grape-dark); }
     padding: 3px 9px;
     border-radius: 999px;
     background: var(--surface-soft);
+    border: 1px solid var(--line);
     color: var(--ink-soft);
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.04em;
 }
-.tag.urgency-high { background: var(--rose-soft); color: var(--rose-ink); }
-.tag.urgency-mid { background: var(--sun-soft); color: var(--sun-ink); }
-.tag.urgency-low { background: var(--mint-soft); color: var(--mint-ink); }
+.tag.urgency-high { background: var(--rose-soft); color: var(--rose-ink); border-color: transparent; }
+.tag.urgency-mid { background: var(--sun-soft); color: var(--sun-ink); border-color: transparent; }
+.tag.urgency-low { background: var(--mint-soft); color: var(--mint-ink); border-color: transparent; }
 
 .card-title { font-size: 1.1rem; margin-bottom: 2px; }
-.card-course { margin-bottom: 6px; font-size: 0.82rem; font-weight: 700; color: var(--grape-dark); }
+.card-course { margin-bottom: 6px; font-size: 0.82rem; font-weight: 700; color: var(--accent-text); }
 .card-desc {
     margin-bottom: 12px;
     font-size: 0.88rem;
@@ -977,13 +563,14 @@ a { color: var(--grape-dark); }
     padding: 8px 12px;
     border-radius: var(--radius);
     background: var(--surface-soft);
+    border: 1px solid var(--line);
 }
-.deadline-box > i { color: var(--tangerine); font-size: 1.05rem; }
+.deadline-box > i { color: var(--accent-text); font-size: 1.05rem; }
 .deadline-text { display: flex; flex-direction: column; }
 .deadline-label { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; color: var(--ink-soft); }
 .deadline-value { font-size: 0.9rem; font-weight: 700; }
 .red-text { color: var(--rose-ink); }
-.cyan-text { color: var(--grape-dark); }
+.cyan-text { color: var(--accent-text); }
 
 .extracted-steps { margin-top: 12px; }
 .extracted-steps h4 {
@@ -1011,16 +598,16 @@ a { color: var(--grape-dark); }
 .step-item.completed i { color: var(--mint); }
 
 .progress-bar {
-    height: 8px;
+    height: 6px;
     margin: 4px 0 6px;
     border-radius: 999px;
-    background: var(--surface-soft);
+    background: var(--line);
     overflow: hidden;
 }
 .progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--tangerine), var(--grape));
+    background: var(--accent);
     transition: width 400ms var(--ease-out);
 }
 
@@ -1033,15 +620,15 @@ a { color: var(--grape-dark); }
     width: 100%;
     min-height: 40px;
     border-radius: var(--radius);
-    border: 1px solid var(--mint-line);
+    border: 1px solid transparent;
     background: var(--mint-soft);
     color: var(--mint-ink);
     font-size: 0.88rem;
     font-weight: 800;
-    transition: background-color var(--fast), border-color var(--fast);
+    transition: filter var(--fast), border-color var(--fast);
 }
-.done-btn:hover { background: #CDEFDF; }
-.done-btn.is-done { background: var(--surface); color: var(--ink-soft); border-color: var(--line-strong); }
+.done-btn:hover { border-color: var(--mint); }
+.done-btn.is-done { background: transparent; color: var(--ink-soft); border-color: var(--line-strong); }
 
 /* Edit form inside a card */
 .edit-form {
@@ -1052,6 +639,7 @@ a { color: var(--grape-dark); }
     padding: 12px;
     border-radius: var(--radius);
     background: var(--surface-soft);
+    border: 1px solid var(--line);
 }
 .edit-form[hidden] { display: none; }
 .edit-form label {
@@ -1067,28 +655,525 @@ a { color: var(--grape-dark); }
     padding: 8px 10px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line-strong);
-    background: var(--surface);
+    background: var(--surface-solid);
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--ink);
 }
 .edit-form input:focus,
-.edit-form textarea:focus { outline: none; border-color: var(--grape); box-shadow: var(--ring); }
+.edit-form textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .edit-form-buttons { display: flex; gap: 8px; }
 
-/* Empty / loading / error states */
+/* Small buttons used in forms and Save cards */
+.save-task-btn,
+.cancel-task-btn,
+.edit-save,
+.edit-cancel,
+.view-note-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: filter var(--fast), border-color var(--fast), color var(--fast);
+}
+.save-task-btn,
+.edit-save,
+.view-note-btn { background: var(--accent); color: var(--on-accent); }
+.save-task-btn:hover,
+.edit-save:hover,
+.view-note-btn:hover { filter: brightness(1.08); }
+.cancel-task-btn,
+.edit-cancel { background: transparent; color: var(--ink-soft); border-color: var(--line-strong); }
+.cancel-task-btn:hover,
+.edit-cancel:hover { color: var(--ink); border-color: var(--ink-soft); }
+
+/* Empty / loading states */
 .waiting-card {
-    padding: 26px 16px;
-    border: 2px dashed var(--line);
+    grid-column: 1 / -1;
+    padding: 28px 16px;
+    border: 2px dashed var(--line-strong);
     border-radius: var(--radius-lg);
     text-align: center;
     color: var(--ink-soft);
 }
-.waiting-icon { display: block; margin-bottom: 8px; font-size: 1.6rem; color: var(--tangerine); }
+.waiting-icon { display: block; margin-bottom: 8px; font-size: 1.6rem; color: var(--accent-text); }
 .waiting-card h3 { font-size: 1.05rem; color: var(--ink); }
 .waiting-card p { margin-top: 4px; font-size: 0.88rem; }
 
-/* Notes library */
+/* ---------- Ollie's corner ---------- */
+.ollie-corner {
+    position: sticky;
+    top: 88px;
+    height: calc(100dvh - 112px);
+    min-height: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.corner-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 16px;
+    border-radius: 999px;
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+}
+.corner-head h1 { flex: 1; font-size: 1.2rem; white-space: nowrap; }
+.corner-head .role {
+    margin-left: 4px;
+    font-family: var(--font-body);
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--ink-soft);
+}
+
+.mode-switch {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+}
+.mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    transition: background-color var(--fast), color var(--fast);
+}
+.mode-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+/* Pet mode: Ollie on the desk with a speech bubble */
+.stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    padding-top: 8px;
+}
+
+.speech {
+    position: relative;
+    /* shrinks and scrolls when the answer is long, so it never slides under Ollie */
+    flex: 0 1 auto;
+    min-height: 0;
+    width: 100%;
+    overflow-y: auto;
+    padding: 14px 16px;
+    border-radius: var(--radius-xl);
+    background: var(--surface-solid);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    font-size: 0.96rem;
+    line-height: 1.55;
+}
+.speech-question {
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+}
+.speech-question::before { content: "You: "; }
+.speech-text { overflow-wrap: anywhere; }
+.speech-extras { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.speech-extras:not(:empty) { margin-top: 10px; }
+/* the little tail pointing down at Ollie */
+.speech-tail {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: -16px auto -2px;
+    background: var(--surface-solid);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    transform: rotate(45deg);
+}
+
+.ollie-btn {
+    flex: none;
+    border-radius: 24px;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.ollie-btn .ollie { width: 190px; }
+.ollie-btn:focus-visible { outline-offset: 6px; }
+
+/* "Ollie is typing" dots */
+.typing { color: var(--ink-soft); font-weight: 600; }
+.typing span { animation: typing-dot 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-dot {
+    0%, 60%, 100% { opacity: 0.2; }
+    30% { opacity: 1; }
+}
+
+/* Chat mode: the whole conversation in a panel */
+.agent-messages {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 12px;
+    border-radius: var(--radius-xl);
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    scroll-behavior: smooth;
+}
+.ollie-corner[data-mode="chat"] .agent-messages { display: flex; }
+.ollie-corner[data-mode="chat"] .stage { display: none; }
+
+.chat-message { display: flex; gap: 8px; max-width: 90%; }
+.ai-message { align-self: flex-start; }
+.user-message { align-self: flex-end; flex-direction: row-reverse; }
+.ai-message::before {
+    content: "";
+    flex: none;
+    width: 32px;
+    height: 32px;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: var(--accent-soft) var(--ollie-face) center 60% / 120% no-repeat;
+}
+.message-bubble {
+    min-width: 0;
+    padding: 10px 14px;
+    border-radius: var(--radius-lg);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+.ai-message .message-bubble {
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-top-left-radius: 6px;
+}
+.user-message .message-bubble {
+    background: var(--accent);
+    color: var(--on-accent);
+    border-top-right-radius: 6px;
+}
+
+/* Things inside answers: code, tables */
+.message-bubble code,
+.speech-text code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 1px 5px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+}
+.user-message .message-bubble code { background: rgba(255, 255, 255, 0.2); }
+.code-block {
+    margin: 8px 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #14141C;
+    color: #F1F0F7;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: pre;
+}
+.code-block code { background: none; padding: 0; color: inherit; font-size: inherit; }
+.table-wrap { overflow-x: auto; margin: 8px 0; }
+.table-wrap table { border-collapse: collapse; min-width: 100%; font-size: 0.84rem; }
+.table-wrap th,
+.table-wrap td {
+    border: 1px solid var(--line-strong);
+    padding: 6px 9px;
+    text-align: left;
+    vertical-align: top;
+}
+.table-wrap th { background: var(--accent-soft); }
+
+/* What Ollie did: "Searched your notes" etc. */
+.tool-badge {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    padding: 4px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.agent-messages .tool-badge { margin-left: 40px; }
+.tool-badge code { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 400; color: var(--ink-soft); }
+
+/* Which notes an answer came from */
+.sources-box {
+    align-self: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    font-size: 0.76rem;
+}
+.agent-messages .sources-box { margin-left: 40px; max-width: 88%; }
+.sources-label { font-weight: 700; color: var(--ink-soft); }
+.sources-label i { color: var(--accent-text); margin-right: 3px; }
+.source-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-soft);
+    color: var(--ink);
+    font-weight: 700;
+}
+
+/* "Save / Cancel" card when Ollie prepares a task or a change */
+.pending-task-card {
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: 100%;
+    padding: 12px 14px;
+    border: 2px dashed var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface-soft);
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+}
+.agent-messages .pending-task-card { margin-left: 40px; max-width: 85%; }
+.pending-task-card strong { font-family: var(--font-display); font-weight: 600; font-size: 1rem; color: var(--ink); }
+.pending-task-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+/* Quick ideas */
+.suggestions {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: none;   /* still scrolls sideways; the cut-off chip shows there's more */
+}
+.suggestions::-webkit-scrollbar { display: none; }
+.suggestion {
+    flex: none;
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    color: var(--ink);
+    font-size: 0.84rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: border-color var(--fast), color var(--fast);
+}
+.suggestion:hover { border-color: var(--accent); color: var(--accent-text); }
+
+/* Message box */
+.composer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 5px 5px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface-solid);
+    box-shadow: var(--shadow);
+    transition: border-color var(--fast), box-shadow var(--fast);
+}
+.composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.composer input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 10px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 1rem;
+}
+.composer input::placeholder { color: var(--ink-soft); }
+.send-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+    transition: filter var(--fast), transform var(--fast);
+}
+.send-btn:hover { filter: brightness(1.08); }
+.send-btn:active { transform: scale(0.94); }
+
+/* What Ollie remembers */
+.memory-box {
+    padding: 6px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--line);
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+}
+.memory-box summary { display: inline-block; padding: 2px 2px; font-weight: 700; cursor: pointer; user-select: none; }
+.memory-box summary i { color: var(--accent-text); margin-right: 4px; }
+.memory-box ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 6px 0 4px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+.memory-box li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 6px 6px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--ink);
+}
+.memory-box li.memory-empty { background: none; padding: 2px 4px; color: var(--ink-soft); }
+.forget-btn {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--ink-soft);
+}
+.forget-btn:hover { background: var(--rose-soft); color: var(--rose-ink); }
+
+/* ---------- Expanded tasks: the task list takes the whole width, Ollie waits in the corner ---------- */
+.layout.is-expanded { grid-template-columns: minmax(0, 1fr); }
+.layout.is-expanded .ollie-corner {
+    position: fixed;
+    right: 20px;
+    bottom: 16px;
+    top: auto;
+    z-index: 30;
+    height: auto;
+    min-height: 0;
+}
+.layout.is-expanded .ollie-corner > :not(.stage) { display: none; }
+.layout.is-expanded .ollie-corner .stage { display: flex; }
+.layout.is-expanded .speech { display: none; }
+.layout.is-expanded .ollie-btn .ollie { width: 110px; }
+
+/* ---------- Notes drawer ---------- */
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(0, 0, 0, 0.35);
+}
+.drawer-backdrop[hidden] { display: none; }
+.drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 95;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(440px, 100%);
+    padding: 20px;
+    overflow-y: auto;
+    background: var(--surface-solid);
+    border-left: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    animation: drawer-in var(--normal) var(--ease-out);
+}
+.drawer[hidden] { display: none; }
+@keyframes drawer-in {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.drawer-head h2 { font-size: 1.3rem; }
+.drawer-head h2 i { color: var(--accent-text); margin-right: 4px; }
+
+.drop-zone {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px;
+    border: 2px dashed var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface-soft);
+    transition: border-color var(--fast), background-color var(--fast);
+}
+.drop-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+.drop-icon {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-size: 1.25rem;
+}
+.drop-text { flex: 1; min-width: 160px; }
+.drop-text h3 { font-size: 1.05rem; }
+.drop-text p { font-size: 0.84rem; color: var(--ink-soft); line-height: 1.4; }
+
+.upload-error {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: var(--rose-soft);
+    color: var(--rose-ink);
+    font-size: 0.86rem;
+}
+.upload-error > i { margin-top: 3px; }
+.upload-error strong { color: var(--ink); }
+
 .notes-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .note-item {
     display: flex;
@@ -1097,9 +1182,8 @@ a { color: var(--grape-dark); }
     padding: 10px 10px 10px 12px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    transition: border-color var(--fast);
+    background: var(--surface-soft);
 }
-.note-item:hover { border-color: var(--line-strong); }
 .note-icon {
     flex: none;
     display: flex;
@@ -1108,15 +1192,15 @@ a { color: var(--grape-dark); }
     width: 36px;
     height: 36px;
     border-radius: var(--radius-sm);
-    background: var(--tangerine-soft);
-    color: var(--tangerine-ink);
+    background: var(--accent-soft);
+    color: var(--accent-text);
 }
 .note-text { flex: 1; min-width: 0; }
 .note-text strong { display: block; font-size: 0.9rem; line-height: 1.35; overflow-wrap: anywhere; }
 .note-text span { font-size: 0.78rem; color: var(--ink-soft); }
 .notes-empty { padding: 4px 2px; font-size: 0.88rem; color: var(--ink-soft); }
 
-/* ---------- Chat with one document (modal) ---------- */
+/* ---------- Modals: document chat and Ollie's note ---------- */
 .chat-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1125,7 +1209,7 @@ a { color: var(--grape-dark); }
     align-items: center;
     justify-content: center;
     padding: 16px;
-    background: rgba(43, 35, 64, 0.45);
+    background: rgba(0, 0, 0, 0.5);
     opacity: 0;
     visibility: hidden;
     transition: opacity var(--normal), visibility var(--normal);
@@ -1134,19 +1218,20 @@ a { color: var(--grape-dark); }
 .chat-modal-container {
     display: flex;
     flex-direction: column;
-    width: min(640px, 100%);
-    height: min(80dvh, 720px);
+    width: min(680px, 100%);
+    height: min(82dvh, 760px);
     padding: 18px;
     border-radius: var(--radius-xl);
-    background: var(--surface);
-    box-shadow: var(--shadow-pop);
+    background: var(--surface-solid);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
     transform: translateY(12px) scale(0.98);
     transition: transform var(--normal) var(--ease-out);
 }
 .chat-modal-overlay.active .chat-modal-container { transform: none; }
 .chat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .chat-header h3 { font-size: 1.15rem; }
-.chat-header h3 i { color: var(--grape); margin-right: 4px; }
+.chat-header h3 i { color: var(--accent-text); margin-right: 4px; }
 .chat-messages {
     flex: 1;
     min-height: 0;
@@ -1156,6 +1241,22 @@ a { color: var(--grape-dark); }
     gap: 12px;
     padding: 14px 2px;
 }
+
+.note-container { height: auto; max-height: min(86dvh, 820px); }
+.note-actions { display: flex; align-items: center; gap: 8px; }
+.note-question { margin: 10px 0 4px; font-size: 0.86rem; font-weight: 700; color: var(--ink-soft); }
+.note-question:empty { display: none; }
+.note-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin-top: 6px;
+    padding: 14px 16px;
+    border-radius: var(--radius-lg);
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+}
+.note-sources:not(:empty) { margin-top: 10px; }
 
 /* ---------- Toast ---------- */
 .toast {
@@ -1169,11 +1270,12 @@ a { color: var(--grape-dark); }
     max-width: calc(100% - 32px);
     padding: 8px 18px 8px 8px;
     border-radius: 999px;
-    background: var(--ink);
-    color: #fff;
+    background: var(--surface-solid);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
     font-size: 0.9rem;
     font-weight: 600;
-    box-shadow: var(--shadow-pop);
+    box-shadow: var(--shadow);
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, 16px);
@@ -1185,47 +1287,38 @@ a { color: var(--grape-dark); }
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--tangerine-soft) var(--mochi-face) center / 78% no-repeat;
+    background: var(--accent-soft) var(--ollie-face) center 60% / 120% no-repeat;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- Smaller screens ---------- */
 @media (max-width: 1023px) {
     .layout { grid-template-columns: minmax(0, 1fr); }
-    .buddy {
-        position: static;
-        height: min(78dvh, 720px);
-    }
+    /* Ollie first, then tasks */
+    .ollie-corner { order: -1; position: static; height: auto; min-height: 0; }
+    .stage { flex: none; }
+    .speech { max-height: 46dvh; }
+    .agent-messages { height: 60dvh; flex: none; }
+    .expand-btn { display: none; }
 }
 
 @media (max-width: 640px) {
-    .topbar { height: 60px; padding: 0 16px; }
-    .brand-name { font-size: 1.05rem; }
-    .hide-small { display: none; }
-    .layout { padding: 16px; gap: 16px; }
-    .side { gap: 16px; }
-    .card { padding: 14px; border-radius: var(--radius-lg); }
-    .buddy { height: 84dvh; min-height: 480px; }
-    /* Mochi on the left, the speech bubble gets all the room; New chat sits in the corner */
-    .buddy-hero { position: relative; padding: 10px; gap: 10px; }
-    .mochi { width: 64px; }
-    .buddy-intro h1 { font-size: 1.25rem; padding-right: 104px; }
-    .buddy-role { display: none; }
-    .speech { display: block; margin-top: 14px; }
-    .new-chat-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        min-height: 36px;
-        padding: 6px 12px;
-        font-size: 0.82rem;
-    }
-    .chat-message { max-width: 94%; }
-    .tool-badge,
-    .sources-box,
-    .pending-task-card { margin-left: 0; }
-    .drop-zone { flex-wrap: wrap; }
-    .browse-btn { width: 100%; }
+    .topbar { height: 58px; padding: 0 12px; gap: 8px; }
+    .brand-name, .hide-small, .room-clock { display: none; }
+    .topbar-actions { gap: 6px; }
+    .light-switch { padding: 0 2px 0 10px; }
+    .light-switch select { font-size: 0.8rem; max-width: 92px; }
+    .layout { padding: 12px; gap: 14px; }
+    .panel { padding: 14px; border-radius: var(--radius-lg); }
+    .cards-layout { grid-template-columns: minmax(0, 1fr); }
+    .panel-actions { width: 100%; }
+    .panel-actions .btn { flex: 1; }
+    .corner-head .role { display: none; }
+    .ollie-btn .ollie { width: 140px; }
+    .chat-message { max-width: 96%; }
+    .agent-messages .tool-badge,
+    .agent-messages .sources-box,
+    .agent-messages .pending-task-card { margin-left: 0; }
     .note-item .btn-label { display: none; }   /* icon only, so the title has room */
 }
 
@@ -1235,10 +1328,11 @@ a { color: var(--grape-dark); }
     .edit-btn,
     .delete-btn { height: 40px; min-width: 40px; }
     .forget-btn { width: 40px; height: 40px; }
-    .suggestion { min-height: 40px; }
+    .suggestion,
+    .mode-btn { min-height: 40px; }
 }
 
-/* People who prefer less motion: Mochi still changes face, but doesn't move */
+/* People who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -1250,26 +1344,240 @@ a { color: var(--grape-dark); }
     }
 }
 
-/* "Mochi is thinking..." with dots that take turns */
-.typing { color: var(--ink-soft); font-weight: 600; }
-.typing span { animation: typing-dot 1.2s infinite; }
-.typing span:nth-child(2) { animation-delay: 0.2s; }
-.typing span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes typing-dot {
-    0%, 60%, 100% { opacity: 0.2; }
-    30% { opacity: 1; }
+/* =========================================================
+   Liquid glass (like Apple's): the room shows through the panels.
+   A light tint keeps the text readable; the blur and boosted colour do the rest,
+   and a bright top edge plus a soft shine make it look like real glass.
+   ========================================================= */
+:root { --blur: blur(26px) saturate(1.8) brightness(1.05); }
+
+body[data-time="morning"],
+body[data-time="afternoon"] {
+    --glass: rgba(255, 255, 255, 0.34);
+    --glass-strong: rgba(255, 255, 255, 0.62);
+    --glass-edge: rgba(255, 255, 255, 0.70);
+    --glass-edge-soft: rgba(255, 255, 255, 0.30);
+    --glass-shine: rgba(255, 255, 255, 0.45);
+    --glass-shadow: 0 10px 40px rgba(40, 24, 8, 0.20);
+}
+body[data-time="evening"],
+body[data-time="night"] {
+    --glass: rgba(18, 14, 30, 0.42);
+    --glass-strong: rgba(18, 14, 30, 0.66);
+    --glass-edge: rgba(255, 255, 255, 0.24);
+    --glass-edge-soft: rgba(255, 255, 255, 0.08);
+    --glass-shine: rgba(255, 255, 255, 0.12);
+    --glass-shadow: 0 12px 44px rgba(0, 0, 0, 0.40);
 }
 
-/* Upload problem, shown under the drop zone */
-.upload-error {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-radius: var(--radius);
-    background: var(--rose-soft);
-    color: var(--rose-ink);
-    font-size: 0.86rem;
+.topbar,
+.panel,
+.corner-head,
+.agent-messages,
+.memory-box,
+.suggestion,
+.speech {
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow:
+        inset 0 1px 0 var(--glass-edge),        /* the bright top edge */
+        inset 0 -1px 0 var(--glass-edge-soft),
+        var(--glass-shadow);
 }
-.upload-error > i { margin-top: 3px; }
-.upload-error strong { color: var(--ink); }
+.topbar { border-width: 0 0 1px; }
+
+/* Things you read a lot get a bit more tint */
+.speech { background: var(--glass-strong); }
+.speech-tail {
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-color: var(--glass-edge-soft);
+}
+.extraction-col { background: var(--glass-strong); border-color: var(--glass-edge-soft); }
+.extraction-col.is-done { background: var(--glass); }
+
+/* The shine: light catching the top-left corner of the glass (drawn behind the content) */
+.panel,
+.corner-head,
+.agent-messages,
+.speech { position: relative; isolation: isolate; }
+.panel::before,
+.corner-head::before,
+.agent-messages::before,
+.speech::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        linear-gradient(135deg, var(--glass-shine) 0%, transparent 38%),
+        radial-gradient(120% 60% at 100% 100%, var(--glass-edge-soft), transparent 60%);
+}
+
+/* =========================================================
+   Room mode: the panels fade away so you can look around and click things
+   ========================================================= */
+.layout { transition: opacity var(--normal), transform var(--normal) var(--ease-out); }
+body.room-mode .layout {
+    opacity: 0;
+    visibility: hidden;   /* also takes the hidden panels out of the Tab order */
+    transform: scale(0.98);
+    transition: opacity var(--normal), transform var(--normal) var(--ease-out), visibility 0s var(--normal);
+}
+#room-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+.room-objects {
+    position: fixed;
+    inset: 64px 0 0;   /* below the top bar */
+    z-index: 20;
+}
+.room-objects[hidden] { display: none; }
+
+/* A clickable object in the picture: invisible until you hover or tab to it */
+.room-hotspot {
+    position: fixed;
+    border-radius: 18px;
+    transition: box-shadow var(--fast), background-color var(--fast);
+}
+.room-hotspot:hover,
+.room-hotspot:focus-visible {
+    outline: none;
+    background: rgba(255, 236, 200, 0.10);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 28px 6px rgba(255, 214, 150, 0.55);
+}
+/* the label that appears under the object */
+.room-hotspot::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--fast);
+}
+.room-hotspot:hover::after,
+.room-hotspot:focus-visible::after { opacity: 1; }
+
+/* When room mode opens, the objects pulse once so you know they're clickable */
+body.room-mode .room-hotspot { animation: hotspot-hint 1.6s ease-out 0.3s 1; }
+@keyframes hotspot-hint {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+    40% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 24px 4px rgba(255, 214, 150, 0.5); }
+}
+
+/* Ollie on the desk, with a speech bubble above */
+.room-ollie-spot {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.room-ollie-btn { border-radius: 24px; padding: 0; width: 100%; }
+.room-ollie-btn .ollie { width: 100%; }
+.room-speech {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    width: max-content;
+    max-width: min(360px, 80vw);
+    transform: translateX(-50%);
+    padding: 12px 14px;
+    border-radius: var(--radius-lg);
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+.room-speech:empty { display: none; }
+.room-speech ul { list-style: none; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.room-speech li { display: flex; gap: 8px; }
+.room-speech li strong { flex: none; min-width: 74px; color: var(--accent-text); }
+.room-speech .btn { margin-top: 10px; min-height: 36px; padding: 6px 14px; font-size: 0.85rem; }
+
+/* The object buttons along the bottom */
+.room-toolbar {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 24px);
+    overflow-x: auto;
+    padding: 6px;
+    border-radius: 999px;
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    scrollbar-width: none;
+}
+.room-tool {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 700;
+    transition: background-color var(--fast);
+}
+.room-tool:hover { background: var(--accent-soft); }
+.room-toolbar .btn { flex: none; }
+
+@media (max-width: 640px) {
+    .room-objects { inset: 58px 0 0; }
+    .room-tool { padding: 6px 10px; }
+}
+
+/* On tall screens (phones) the room is cut off at the sides: slide it toward the desk so Ollie is in view.
+   main.js uses the same 66% when it places the clickable spots. */
+@media (orientation: portrait) {
+    .room-art { background-position: 66% 40%; }
+    .room-speech {
+        position: fixed;
+        top: 76px;
+        left: 16px;
+        right: 16px;
+        bottom: auto;
+        width: auto;
+        max-width: none;
+        transform: none;
+    }
+}
+@media (max-width: 640px) {
+    /* toolbar: icons only, so everything fits (the words stay for screen readers) */
+    .room-toolbar .tool-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+    .room-tool { min-width: 44px; justify-content: center; }
+}

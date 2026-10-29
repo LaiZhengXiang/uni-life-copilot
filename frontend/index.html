@@ -4,47 +4,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UniLife Copilot</title>
-    <!-- Fredoka (round and friendly) for headings, Nunito (soft but easy to read) for everything else -->
+    <!-- Fredoka for headings and Ollie's voice, Nunito for everything else -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=20">
+    <link rel="stylesheet" href="ollie.css?v=16">
 </head>
-<body>
+<!-- data-time (morning / afternoon / evening / night) is set by main.js from your clock -->
+<body data-time="afternoon">
     <a class="skip-link" href="#agent-input">Skip to the chat</a>
 
-    <!-- A small, still Mochi we reuse in the logo (the big one in the chat is below and can move) -->
-    <svg width="0" height="0" class="svg-defs" aria-hidden="true" focusable="false">
-        <symbol id="mochi-mini" viewBox="0 0 140 130">
-            <path fill="#FFE1D3" d="M70 30 C102 30 120 54 120 82 C120 106 99 116 70 116 C41 116 20 106 20 82 C20 54 38 30 70 30 Z"/>
-            <ellipse fill="#FFB4A2" cx="40" cy="90" rx="9" ry="5.5"/>
-            <ellipse fill="#FFB4A2" cx="100" cy="90" rx="9" ry="5.5"/>
-            <ellipse fill="#2B2340" cx="54" cy="78" rx="6" ry="7.5"/>
-            <ellipse fill="#2B2340" cx="86" cy="78" rx="6" ry="7.5"/>
-            <path fill="none" stroke="#2B2340" stroke-width="3.5" stroke-linecap="round" d="M63 92 Q70 99 77 92"/>
-            <g transform="rotate(-10 70 28)">
-                <path fill="#2B2340" d="M52 30 L52 38 Q70 46 88 38 L88 30 Z"/>
-                <path fill="#3A2F57" d="M70 14 L104 27 L70 40 L36 27 Z"/>
-                <path fill="none" stroke="#FF8A4C" stroke-width="2.5" d="M70 27 L98 30 L98 46"/>
-                <circle fill="#FF8A4C" cx="98" cy="48" r="4"/>
-            </g>
-        </symbol>
+    <!-- Fur colours live in their own tiny SVG that is never hidden:
+         a gradient inside a hidden element stops painting in every copy that uses it -->
+    <svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <defs>
+            <radialGradient id="ollie-fur" cx="50%" cy="38%" r="65%">
+                <stop offset="0%" stop-color="#F8C887"/>
+                <stop offset="70%" stop-color="#EDA457"/>
+                <stop offset="100%" stop-color="#DC8C42"/>
+            </radialGradient>
+            <radialGradient id="ollie-body-fur" cx="50%" cy="30%" r="75%">
+                <stop offset="0%" stop-color="#F3B56D"/>
+                <stop offset="100%" stop-color="#D98940"/>
+            </radialGradient>
+        </defs>
     </svg>
 
-    <!-- Top bar -->
+    <!-- The cozy room behind everything. The picture changes with the time of day. -->
+    <div class="room" aria-hidden="true">
+        <div class="room-art"></div>
+        <div class="room-shade"></div>
+    </div>
+
+    <!-- Room mode: the panels fade away and you can click things in the room.
+         main.js places each spot on top of the matching object in the picture
+         (data-box = left, top, right, bottom, as fractions of the picture). -->
+    <div class="room-objects" id="room-objects" hidden>
+        <button class="room-hotspot" data-object="clock" data-box="0.198,0.006,0.288,0.165" data-label="Clock: today's plan" aria-label="Clock: today's plan"></button>
+        <button class="room-hotspot" data-object="calendar" data-box="0.213,0.195,0.314,0.438" data-label="Calendar: deadlines" aria-label="Calendar: deadlines"></button>
+        <button class="room-hotspot" data-object="lamp" data-box="0.366,0.398,0.500,0.705" data-label="Lamp: light switch" aria-label="Lamp: light switch"></button>
+        <button class="room-hotspot" data-object="drawer" data-box="0.326,0.770,0.466,0.995" data-label="Drawer: your notes" aria-label="Drawer: your notes"></button>
+
+        <!-- Ollie sitting on the desk (a copy of the Ollie in the corner, made by main.js) -->
+        <div class="room-ollie-spot" id="room-ollie-spot">
+            <div class="room-speech" id="room-speech" aria-live="polite"></div>
+            <button class="room-ollie-btn" id="room-ollie-btn" aria-label="Pet Ollie">
+                <span class="ollie" id="room-ollie" data-state="idle"></span>
+            </button>
+        </div>
+
+        <!-- The same objects as plain buttons: for keyboards, screen readers and small screens -->
+        <nav class="room-toolbar" aria-label="Things in the room">
+            <button class="room-tool" data-object="clock"><i class="fa-regular fa-clock" aria-hidden="true"></i> <span class="tool-label">Clock</span></button>
+            <button class="room-tool" data-object="calendar"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <span class="tool-label">Calendar</span></button>
+            <button class="room-tool" data-object="lamp"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> <span class="tool-label">Lamp</span></button>
+            <button class="room-tool" data-object="drawer"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> <span class="tool-label">Drawer</span></button>
+            <button class="btn btn-primary" id="back-to-work"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <span class="tool-label">Back to work</span></button>
+        </nav>
+    </div>
+
     <header class="topbar">
         <a class="brand" href="#" aria-label="UniLife Copilot home">
-            <svg class="brand-mochi" aria-hidden="true"><use href="#mochi-mini"/></svg>
+            <span class="brand-ollie" id="brand-ollie" aria-hidden="true"></span>
             <span class="brand-name">UniLife <strong>Copilot</strong></span>
         </a>
 
         <div class="topbar-actions">
+            <span class="room-clock" id="room-clock" aria-label="Current time"></span>
+
+            <!-- Room mode: hide the panels and look around the room -->
+            <button class="icon-btn" id="room-btn" aria-pressed="false" aria-label="Look around the room"
+                    title="Look around the room">
+                <i class="fa-solid fa-couch" aria-hidden="true"></i>
+            </button>
+
+            <!-- The light switch: follow the real time, or pick a time of day -->
+            <label class="light-switch">
+                <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                <span class="visually-hidden">Room light</span>
+                <select id="time-mode">
+                    <option value="auto">Real time</option>
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                    <option value="night">Night</option>
+                </select>
+            </label>
+
             <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
-            <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" class="btn btn-ghost" download
-               aria-label="Add deadlines to my calendar">
+            <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" class="icon-btn" download
+               aria-label="Add deadlines to my calendar" title="Add deadlines to my calendar">
                 <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i>
-                <span class="hide-small">Add to calendar</span>
             </a>
 
             <!-- Bell: what's due in the next 3 days -->
@@ -63,61 +115,182 @@
         </div>
     </header>
 
-    <main class="layout">
-        <!-- ===== Mochi, the study-buddy agent ===== -->
-        <section class="card buddy" aria-labelledby="buddy-title">
-            <div class="buddy-hero">
-                <!-- data-state: idle / thinking / happy / oops (main.js changes it) -->
-                <div class="mochi" id="mochi" data-state="idle" aria-hidden="true">
-                    <svg class="mochi-svg" viewBox="0 0 140 130">
-                        <ellipse class="mochi-shadow" cx="70" cy="122" rx="36" ry="5"/>
-                        <g class="mochi-body">
-                            <path class="mochi-skin" d="M70 30 C102 30 120 54 120 82 C120 106 99 116 70 116 C41 116 20 106 20 82 C20 54 38 30 70 30 Z"/>
-                            <ellipse class="mochi-shine" cx="47" cy="52" rx="10" ry="5.5" transform="rotate(-28 47 52)"/>
-                            <ellipse class="mochi-blush" cx="40" cy="90" rx="9" ry="5.5"/>
-                            <ellipse class="mochi-blush" cx="100" cy="90" rx="9" ry="5.5"/>
-                            <g class="mochi-eyes">
-                                <g class="mochi-eye">
-                                    <ellipse cx="54" cy="78" rx="6" ry="7.5"/>
-                                    <circle class="mochi-sparkle" cx="56.5" cy="74.5" r="2.2"/>
-                                </g>
-                                <g class="mochi-eye">
-                                    <ellipse cx="86" cy="78" rx="6" ry="7.5"/>
-                                    <circle class="mochi-sparkle" cx="88.5" cy="74.5" r="2.2"/>
-                                </g>
-                            </g>
-                            <g class="mochi-eyes-happy">
-                                <path d="M47 81 Q54 71 61 81"/>
-                                <path d="M79 81 Q86 71 93 81"/>
-                            </g>
-                            <path class="mochi-mouth mouth-smile" d="M63 92 Q70 99 77 92"/>
-                            <path class="mochi-mouth mouth-open" d="M62 91 Q70 104 78 91 Z"/>
-                            <ellipse class="mochi-mouth mouth-o" cx="70" cy="95" rx="3.5" ry="4"/>
-                            <g class="mochi-cap" transform="rotate(-10 70 28)">
-                                <path class="cap-base" d="M52 30 L52 38 Q70 46 88 38 L88 30 Z"/>
-                                <path class="cap-top" d="M70 14 L104 27 L70 40 L36 27 Z"/>
-                                <circle class="cap-button" cx="70" cy="27" r="2.5"/>
-                                <g class="cap-tassel">
-                                    <path class="cap-string" d="M70 27 L98 30 L98 46"/>
-                                    <circle class="cap-ball" cx="98" cy="48" r="4"/>
-                                </g>
-                            </g>
-                        </g>
-                    </svg>
-                    <div class="mochi-thought"><span></span><span></span><span></span></div>
+    <main class="layout" id="layout">
+        <!-- ===== Tasks: the main area ===== -->
+        <section class="panel tasks-panel" id="tasks-panel" aria-labelledby="tasks-title">
+            <div class="panel-head">
+                <div class="panel-title">
+                    <h2 id="tasks-title">Your tasks <span class="count-pill" id="task-count"></span></h2>
+                    <p class="list-hint">Tick off steps as you go. Drop a PDF here to add it.</p>
                 </div>
-
-                <div class="buddy-intro">
-                    <h1 id="buddy-title">Mochi <span class="buddy-role">your study buddy</span></h1>
-                    <p class="speech" id="mochi-says">Hi! Let me check your day...</p>
+                <div class="panel-actions">
+                    <button class="btn btn-primary" id="upload-btn">
+                        <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Upload PDF
+                    </button>
+                    <button class="btn btn-soft" id="notes-btn" aria-controls="notes-drawer" aria-expanded="false">
+                        <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Notes
+                        <span class="count-pill" id="notes-count"></span>
+                    </button>
+                    <button class="icon-btn expand-btn" id="expand-btn" aria-pressed="false" aria-label="Expand tasks"
+                            title="Expand tasks">
+                        <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+                    </button>
                 </div>
+            </div>
+            <div class="cards-layout" id="task-list">
+                <div class="waiting-card">
+                    <i class="fa-solid fa-spinner fa-spin waiting-icon" aria-hidden="true"></i>
+                    <h3>Loading your tasks...</h3>
+                </div>
+            </div>
+        </section>
 
-                <button class="btn btn-soft new-chat-btn" id="new-chat"
-                        title="Start a new chat (Mochi keeps what it remembers about you)">
-                    <i class="fa-solid fa-plus" aria-hidden="true"></i> New chat
+        <!-- ===== Ollie's corner: Pet mode (Ollie talks) or Chat mode (normal chat) ===== -->
+        <section class="ollie-corner" id="ollie-corner" data-mode="pet" aria-labelledby="ollie-title">
+            <div class="corner-head">
+                <h1 id="ollie-title">Ollie <span class="role">study buddy</span></h1>
+                <div class="mode-switch" role="group" aria-label="How to talk to Ollie">
+                    <button class="mode-btn" data-mode="pet" aria-pressed="true">
+                        <i class="fa-solid fa-cat" aria-hidden="true"></i> Pet
+                    </button>
+                    <button class="mode-btn" data-mode="chat" aria-pressed="false">
+                        <i class="fa-regular fa-comments" aria-hidden="true"></i> Chat
+                    </button>
+                </div>
+                <button class="icon-btn" id="new-chat" aria-label="New chat"
+                        title="New chat (Ollie keeps what it remembers about you)">
+                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                 </button>
             </div>
 
+            <!-- Pet mode: Ollie answers in a speech bubble -->
+            <div class="stage">
+                <div class="speech" id="ollie-speech" aria-live="polite">
+                    <p class="speech-question" id="speech-question" hidden></p>
+                    <div class="speech-text" id="ollie-says">Hi! Let me check your day...</div>
+                    <div class="speech-extras" id="speech-extras"></div>
+                </div>
+                <span class="speech-tail" aria-hidden="true"></span>
+                <button class="ollie-btn" id="ollie-btn" aria-label="Pet Ollie">
+                    <span class="ollie" id="ollie" data-state="idle">
+                        <!-- Ollie the nerdy cat. Moods are set with data-state on #ollie: idle, thinking, explain, happy, oops, sleepy. -->
+                        <svg class="ollie-svg" viewBox="0 0 200 210" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+
+                            <ellipse class="ollie-shadow" cx="100" cy="202" rx="62" ry="6"/>
+
+                            <g class="ollie-all">
+                                <!-- Tail (behind the body) -->
+                                <path class="ollie-tail" d="M140 186 C172 190 186 166 176 146 C170 134 158 138 162 148"/>
+
+                                <!-- Body -->
+                                <path class="ollie-body" d="M52 198 C46 160 66 134 100 134 C134 134 154 160 148 198 Z"/>
+                                <path class="ollie-chest" d="M80 198 C78 168 88 152 100 152 C112 152 122 168 120 198 Z"/>
+                                <g class="ollie-feet">
+                                    <ellipse cx="80" cy="196" rx="14" ry="8"/>
+                                    <ellipse cx="120" cy="196" rx="14" ry="8"/>
+                                    <path class="ollie-toes" d="M76 193 L76 199 M84 193 L84 199 M116 193 L116 199 M124 193 L124 199"/>
+                                </g>
+
+                                <!-- Head and everything on it moves together -->
+                                <g class="ollie-head">
+                                    <g class="ollie-ear ollie-ear-left">
+                                        <path class="ollie-ear-out" d="M46 74 L40 22 C40 17 45 15 49 18 L84 46 Z"/>
+                                        <path class="ollie-ear-in" d="M52 62 L48 31 L73 48 Z"/>
+                                    </g>
+                                    <g class="ollie-ear ollie-ear-right">
+                                        <path class="ollie-ear-out" d="M154 74 L160 22 C160 17 155 15 151 18 L116 46 Z"/>
+                                        <path class="ollie-ear-in" d="M148 62 L152 31 L127 48 Z"/>
+                                    </g>
+
+                                    <path class="ollie-face" d="M100 34 C142 34 170 58 172 94 C174 118 162 140 134 148 C118 153 82 153 66 148 C38 140 26 118 28 94 C30 58 58 34 100 34 Z"/>
+
+                                    <g class="ollie-stripes">
+                                        <path d="M91 44 L93 58"/><path d="M100 41 L100 58"/><path d="M109 44 L107 58"/>
+                                        <path d="M32 94 L47 96"/><path d="M34 106 L48 106"/>
+                                        <path d="M168 94 L153 96"/><path d="M166 106 L152 106"/>
+                                    </g>
+
+                                    <ellipse class="ollie-blush" cx="52" cy="122" rx="10" ry="6"/>
+                                    <ellipse class="ollie-blush" cx="148" cy="122" rx="10" ry="6"/>
+
+                                    <g class="ollie-muzzle">
+                                        <ellipse cx="88" cy="126" rx="16" ry="12"/>
+                                        <ellipse cx="112" cy="126" rx="16" ry="12"/>
+                                    </g>
+                                    <path class="ollie-nose" d="M93 114 Q100 111 107 114 Q104 120 100 121 Q96 120 93 114 Z"/>
+                                    <path class="ollie-mouth" d="M100 121 L100 126 M100 126 C97 130 92 130 89 127 M100 126 C103 130 108 130 111 127"/>
+
+                                    <!-- Buck teeth: pop out when Ollie explains something -->
+                                    <g class="ollie-teeth">
+                                        <rect x="94" y="127" width="6" height="9" rx="1.6"/>
+                                        <rect x="100" y="127" width="6" height="9" rx="1.6"/>
+                                    </g>
+
+                                    <g class="ollie-whiskers">
+                                        <path d="M72 122 L42 117"/><path d="M72 128 L44 131"/>
+                                        <path d="M128 122 L158 117"/><path d="M128 128 L156 131"/>
+                                    </g>
+
+                                    <!-- Eyes (open). Each .ollie-look is moved by main.js so the eyes follow your mouse -->
+                                    <g class="ollie-eyes">
+                                        <g class="ollie-eye">
+                                            <g class="ollie-look">
+                                                <circle class="ollie-iris" cx="76" cy="92" r="11"/>
+                                                <circle class="ollie-glint" cx="80" cy="87.5" r="3.6"/>
+                                                <circle class="ollie-glint" cx="72.5" cy="95.5" r="1.6"/>
+                                            </g>
+                                        </g>
+                                        <g class="ollie-eye">
+                                            <g class="ollie-look">
+                                                <circle class="ollie-iris" cx="124" cy="92" r="11"/>
+                                                <circle class="ollie-glint" cx="128" cy="87.5" r="3.6"/>
+                                                <circle class="ollie-glint" cx="120.5" cy="95.5" r="1.6"/>
+                                            </g>
+                                        </g>
+                                    </g>
+                                    <g class="ollie-eyes-happy">
+                                        <path d="M65 95 Q76 83 87 95"/><path d="M113 95 Q124 83 135 95"/>
+                                    </g>
+                                    <g class="ollie-eyes-closed">
+                                        <path d="M65 92 Q76 99 87 92"/><path d="M113 92 Q124 99 135 92"/>
+                                    </g>
+
+                                    <!-- Big nerdy glasses -->
+                                    <g class="ollie-glasses">
+                                        <circle class="ollie-lens" cx="76" cy="92" r="22"/>
+                                        <circle class="ollie-lens" cx="124" cy="92" r="22"/>
+                                        <path class="ollie-frame" d="M98 89 Q100 85 102 89"/>
+                                        <path class="ollie-frame" d="M54 88 L36 83"/>
+                                        <path class="ollie-frame" d="M146 88 L164 83"/>
+                                        <path class="ollie-glare" d="M62 82 Q68 75 77 74"/>
+                                        <path class="ollie-glare" d="M110 82 Q116 75 125 74"/>
+                                    </g>
+
+                                    <!-- Sweat drop for "oops" -->
+                                    <path class="ollie-sweat" d="M162 58 C158 66 156 70 160 73 C164 76 168 72 166 66 Z"/>
+                                </g>
+
+                                <!-- The "um, actually" paw: hidden until Ollie explains -->
+                                <g class="ollie-paw">
+                                    <path class="ollie-arm" d="M146 166 C162 156 174 138 178 118"/>
+                                    <!-- the toe on the face side sticks up like a pointing finger: "um, actually..."
+                                         (on the side, not the middle, so it can't be mistaken for a rude gesture) -->
+                                    <rect class="ollie-finger" x="164" y="72" width="12" height="34" rx="6"/>
+                                    <ellipse class="ollie-bean" cx="170" cy="79" rx="3.3" ry="4"/>
+                                    <circle class="ollie-paw-ball" cx="179" cy="108" r="15"/>
+                                    <ellipse class="ollie-bean" cx="181" cy="113" rx="6" ry="4.6"/>
+                                    <circle class="ollie-bean" cx="182" cy="101" r="2.4"/>
+                                    <circle class="ollie-bean" cx="189" cy="106" r="2.4"/>
+                                </g>
+                            </g>
+                        </svg>
+                        <span class="ollie-thought"><span></span><span></span><span></span></span>
+                        <span class="ollie-zzz"><span>z</span><span>z</span><span>Z</span></span>
+                    </span>
+                </button>
+            </div>
+
+            <!-- Chat mode: the whole conversation -->
             <div class="agent-messages" id="agent-messages" aria-live="polite"></div>
 
             <!-- Quick ideas: click one to ask it -->
@@ -128,61 +301,58 @@
             </div>
 
             <div class="agent-input-area composer">
-                <label class="visually-hidden" for="agent-input">Ask Mochi</label>
-                <input type="text" id="agent-input" placeholder="Ask Mochi about your notes or deadlines..." autocomplete="off">
+                <label class="visually-hidden" for="agent-input">Ask Ollie</label>
+                <input type="text" id="agent-input" placeholder="Ask Ollie about your notes or deadlines..." autocomplete="off">
                 <button class="send-btn" id="agent-send" aria-label="Send">
                     <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
                 </button>
             </div>
 
-            <!-- Long-term memory: what Mochi remembers about you, with a button to forget each one -->
+            <!-- Long-term memory: what Ollie remembers about you, with a button to forget each one -->
             <details class="memory-box" id="memory-box">
-                <summary><i class="fa-solid fa-brain" aria-hidden="true"></i> Mochi remembers (<span id="memory-count">0</span>)</summary>
+                <summary><i class="fa-solid fa-brain" aria-hidden="true"></i> Ollie remembers (<span id="memory-count">0</span>)</summary>
                 <ul id="memory-list"></ul>
             </details>
         </section>
-
-        <!-- ===== Side: upload, tasks, notes ===== -->
-        <aside class="side" aria-label="Your study stuff">
-            <section class="card upload-card" aria-labelledby="upload-title">
-                <h2 id="upload-title" class="visually-hidden">Upload a PDF</h2>
-                <div class="drop-zone" id="drop-zone">
-                    <div class="drop-icon"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i></div>
-                    <div class="drop-text">
-                        <h3>Drop a PDF here</h3>
-                        <p>Assignment briefs become tasks. Lecture notes go to Mochi's library.</p>
-                    </div>
-                    <button class="btn btn-primary browse-btn" id="browse-btn">Browse</button>
-                    <input type="file" id="file-input" accept="application/pdf" hidden>
-                </div>
-            </section>
-
-            <section class="card list-card" aria-labelledby="tasks-title">
-                <div class="list-header">
-                    <h2 id="tasks-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Your tasks</h2>
-                    <span class="count-pill" id="task-count"></span>
-                </div>
-                <p class="list-hint">Tick off steps as you go. Finished tasks move to the bottom.</p>
-                <div class="cards-layout" id="task-list">
-                    <div class="waiting-card">
-                        <i class="fa-solid fa-spinner fa-spin waiting-icon" aria-hidden="true"></i>
-                        <h3>Loading your tasks...</h3>
-                    </div>
-                </div>
-            </section>
-
-            <section class="card list-card" aria-labelledby="notes-title">
-                <div class="list-header">
-                    <h2 id="notes-title"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Mochi has read</h2>
-                    <span class="count-pill" id="notes-count"></span>
-                </div>
-                <p class="list-hint">Lecture notes Mochi can answer questions about.</p>
-                <ul class="notes-list" id="notes-list"></ul>
-            </section>
-        </aside>
     </main>
 
-    <!-- Chat with one document -->
+    <!-- ===== The drawer: lecture notes Ollie has read, and PDF upload ===== -->
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="drawer" id="notes-drawer" aria-labelledby="drawer-title" hidden>
+        <div class="drawer-head">
+            <h2 id="drawer-title"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> Notes drawer</h2>
+            <button class="icon-btn" id="close-drawer" aria-label="Close the notes drawer"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <p class="list-hint">Lecture notes Ollie has read and can answer questions about.</p>
+        <div class="drop-zone" id="drop-zone">
+            <div class="drop-icon"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i></div>
+            <div class="drop-text">
+                <h3>Drop a PDF here</h3>
+                <p>Assignment briefs become tasks. Lecture notes go in this drawer.</p>
+            </div>
+            <button class="btn btn-primary browse-btn" id="browse-btn">Browse</button>
+            <input type="file" id="file-input" accept="application/pdf" hidden>
+        </div>
+        <ul class="notes-list" id="notes-list"></ul>
+    </aside>
+
+    <!-- ===== Ollie's note: the full version of a long answer ===== -->
+    <div class="chat-modal-overlay" id="note-modal">
+        <div class="chat-modal-container note-container" role="dialog" aria-modal="true" aria-labelledby="note-title">
+            <div class="chat-header">
+                <h3 id="note-title"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> Ollie's note</h3>
+                <div class="note-actions">
+                    <button class="btn btn-soft" id="copy-note"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
+                    <button class="icon-btn" id="close-note" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                </div>
+            </div>
+            <p class="note-question" id="note-question"></p>
+            <div class="note-body message-bubble" id="note-body"></div>
+            <div class="note-sources" id="note-sources"></div>
+        </div>
+    </div>
+
+    <!-- ===== Chat with one document ===== -->
     <div class="chat-modal-overlay" id="chat-modal">
         <div class="chat-modal-container" role="dialog" aria-modal="true" aria-labelledby="chat-modal-title">
             <div class="chat-header">
@@ -202,6 +372,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=14"></script>
+    <script src="main.js?v=20"></script>
 </body>
 </html>
