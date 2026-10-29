@@ -79,20 +79,34 @@ def list_preferences() -> List[models.Preference]:
         db.close()
 
 
-def add_preference(text: str) -> dict:
-    """Agent tool: remember something lasting about the student."""
+def add_preference(text: str, replaces_id: Optional[int] = None) -> dict:
+    """
+    Agent tool: remember something lasting about the student.
+    replaces_id: an old memory this one corrects (e.g. a new name), which gets deleted,
+    so the AI never holds two facts that disagree.
+    """
     text = text.strip()
     if not text:
         return {"error": "Nothing to remember."}
     db = SessionLocal()
     try:
+        replaced = None
+        if replaces_id is not None:
+            old = db.query(models.Preference).filter(models.Preference.id == int(replaces_id)).first()
+            if old:
+                replaced = old.text
+                db.delete(old)
+                db.commit()
         # Don't save the same thing twice
         if db.query(models.Preference).filter(models.Preference.text.ilike(text)).first():
             return {"status": "already remembered", "text": text}
         pref = models.Preference(text=text, created_at=datetime.now())
         db.add(pref)
         db.commit()
-        return {"status": "remembered", "preference_id": pref.id, "text": text}
+        result = {"status": "remembered", "preference_id": pref.id, "text": text}
+        if replaced:
+            result["replaced"] = replaced
+        return result
     finally:
         db.close()
 

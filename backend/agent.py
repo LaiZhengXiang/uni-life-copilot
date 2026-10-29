@@ -302,12 +302,18 @@ TOOLS_MENU = [
                 "Save something lasting about the student so you remember it in every future chat, "
                 "e.g. 'Doesn't study after 11pm', 'Prefers to start assignments 1 week early', 'Is in Year 2'. "
                 "Use it when the student tells you a habit, rule or fact about themselves, or says 'remember that...'. "
-                "Do not use it for one-off tasks or deadlines (use add_task for those)."
+                "Do not use it for one-off tasks or deadlines (use add_task for those). "
+                "If it changes or contradicts something you already remember (a new name, a new study time...), "
+                "pass that old memory's id as replaces_id so the old one is deleted."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "One short sentence, written about the student."},
+                    "replaces_id": {
+                        "type": "integer",
+                        "description": "The id of an old memory this one corrects or updates, from 'What you remember'.",
+                    },
                 },
                 "required": ["text"],
             },
@@ -360,7 +366,9 @@ def _system_prompt() -> str:
         "IMPORTANT: to add or change anything you MUST call the tool in this turn. The Save button only appears "
         "after a real tool call, so never just write that you did it. "
         "When the student tells you a lasting habit or preference, save it with remember_preference, "
-        "and use what you remember when you give advice.\n"
+        "and use what you remember when you give advice. Your memories must never disagree: before saving, "
+        "check the list below, and if the new fact updates an old one, use replaces_id. If two memories "
+        "already disagree, ask the student which is right, then fix it.\n"
         f"What you remember about the student:\n{_preferences_text()}\n"
         "The chat window is narrow: prefer short bullet lists; only use a table for a small comparison "
         "(3 columns at most, short cells). "
