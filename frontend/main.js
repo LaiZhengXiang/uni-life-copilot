@@ -22,10 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
     toast.className = 'toast';
     document.body.appendChild(toast);
 
-    function showToast(message) {
-        toast.innerHTML = `<i class="fa-solid fa-rocket"></i> ${message}`;
+    let toastTimer = null;
+    function showToast(message, seconds = 3) {
+        // The <span> keeps the message as one block, so bold words don't break the line
+        toast.innerHTML = `<i class="fa-solid fa-rocket"></i> <span>${message}</span>`;
         toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3000);
+        clearTimeout(toastTimer);  // a new toast gets its full time, even if an old one was still showing
+        toastTimer = setTimeout(() => toast.classList.remove('show'), seconds * 1000);
     }
 
     const API = 'http://127.0.0.1:8000';
@@ -566,7 +569,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('.forget-btn');
         if (!btn) return;
         await fetch(`${API}/api/preferences/${btn.dataset.id}`, { method: 'DELETE' });
-        showToast('Forgotten.');
+        // Copilot also reads this chat (short-term memory), so it may still know the thing you deleted
+        const chatHasMessages = agentMessages.querySelector('.user-message') !== null;
+        showToast(chatHasMessages
+            ? 'Forgotten. Copilot can still see it in this chat, so click <strong>New chat</strong> to fully reset.'
+            : 'Forgotten.', chatHasMessages ? 6 : 3);
         loadMemory();
     });
 
