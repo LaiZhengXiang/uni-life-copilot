@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -64,17 +64,23 @@
 
                 <!-- Ask Copilot: the study-secretary agent (uses tools to read your real tasks) -->
                 <div class="glass-panel agent-panel">
-                    <h2><i class="fa-solid fa-robot"></i> Ask Copilot</h2>
-                    <p class="panel-desc">Your study secretary. It looks up your real deadlines before answering.</p>
-                    <div class="agent-messages" id="agent-messages">
-                        <div class="chat-message ai-message">
-                            <div class="message-bubble">Hi! Try asking: "What's due this week?"</div>
-                        </div>
+                    <div class="agent-header">
+                        <h2><i class="fa-solid fa-robot"></i> Ask Copilot</h2>
+                        <button class="new-chat-btn" id="new-chat" title="Start a new chat (Copilot keeps what it remembers about you)">
+                            <i class="fa-solid fa-plus"></i> New chat
+                        </button>
                     </div>
+                    <p class="panel-desc">Your study secretary. It looks up your real deadlines and remembers this chat.</p>
+                    <div class="agent-messages" id="agent-messages"></div>
                     <div class="agent-input-area chat-input-area">
                         <input type="text" id="agent-input" placeholder="Ask about your deadlines..." autocomplete="off">
                         <button class="send-btn" id="agent-send"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
+                    <!-- Long-term memory: what Copilot remembers about you, with a button to forget each one -->
+                    <details class="memory-box" id="memory-box">
+                        <summary><i class="fa-solid fa-brain"></i> Copilot remembers (<span id="memory-count">0</span>)</summary>
+                        <ul id="memory-list"></ul>
+                    </details>
                 </div>
 
                 <!-- Features Info Panel -->
@@ -156,6 +162,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=4"></script>
+    <script src="main.js?v=5"></script>
 </body>
 </html>

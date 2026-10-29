@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import ai_service
 import agent
+import memory
 import models
 import tasks
 from database import engine, SessionLocal
@@ -125,7 +126,28 @@ async def ask_agent(req: agent.AgentRequest):
     """Ask the study-secretary agent. It can use tools (like get_deadlines) to look up your real data."""
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Please type a question.")
-    return agent.run_agent(req.message)
+    return agent.run_agent(req.message, req.conversation_id)
+
+@app.get("/api/agent/history/{conversation_id}", response_model=List[memory.HistoryMessage])
+async def get_agent_history(conversation_id: str):
+    """The messages of a conversation, so the chat still shows them after you refresh the page."""
+    # Only the chat bubbles; the "system" notes are just for the AI
+    return [m for m in memory.load_history(conversation_id, limit=50) if m.role in ("user", "assistant")]
+
+@app.delete("/api/agent/history/{conversation_id}")
+async def clear_agent_history(conversation_id: str):
+    """New chat: forget this conversation (your preferences are kept)."""
+    memory.clear_history(conversation_id)
+    return {"message": "Conversation cleared"}
+
+@app.get("/api/preferences", response_model=List[memory.PreferenceOut])
+async def get_preferences():
+    """Everything Copilot remembers about you long-term."""
+    return memory.list_preferences()
+
+@app.delete("/api/preferences/{preference_id}")
+async def forget_preference(preference_id: int):
+    return memory.delete_preference(preference_id)
 
 @app.post("/api/agent/save-task", response_model=tasks.TaskOut)
 async def save_agent_task(task: agent.PendingTask):

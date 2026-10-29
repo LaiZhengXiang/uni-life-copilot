@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${API}/api/agent`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text })
+                body: JSON.stringify({ message: text, conversation_id: conversationId })
             });
             const data = await response.json().catch(() => ({}));
             thinking.remove();
@@ -439,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appendAgentMessage(formatChatText(data.answer));
             if (data.pending_task) appendPendingTaskCard(data.pending_task);
             if (data.pending_edit) appendPendingEditCard(data.pending_edit);
+            if (data.tools_used.some(t => t.name.endsWith('_preference'))) loadMemory();
         } catch (error) {
             console.error(error);
             thinking.remove();
@@ -450,6 +451,80 @@ document.addEventListener('DOMContentLoaded', () => {
     agentInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') askAgent();
     });
+
+    // ---------- Memory ----------
+    // Short-term: each chat has an id, kept in this browser so a refresh doesn't lose the chat.
+    // The messages themselves live in the backend database.
+    function newConversationId() {
+        return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+    }
+    function readSavedId() {
+        try { return localStorage.getItem('copilotConversationId'); } catch (e) { return null; }
+    }
+    function saveId(id) {
+        try { localStorage.setItem('copilotConversationId', id); } catch (e) {}
+    }
+    let conversationId = readSavedId() || newConversationId();
+    saveId(conversationId);
+
+    function showGreeting() {
+        appendAgentMessage('Hi! Try asking: "What\'s due this week?" or "Remember that I don\'t study after 11pm".');
+    }
+
+    async function loadConversation() {
+        agentMessages.innerHTML = '';
+        try {
+            const response = await fetch(`${API}/api/agent/history/${conversationId}`);
+            const history = response.ok ? await response.json() : [];
+            if (history.length === 0) showGreeting();
+            history.forEach(m => appendAgentMessage(formatChatText(m.content), m.role === 'user'));
+        } catch (error) {
+            showGreeting();
+        }
+    }
+
+    document.getElementById('new-chat').addEventListener('click', async () => {
+        try {
+            await fetch(`${API}/api/agent/history/${conversationId}`, { method: 'DELETE' });
+        } catch (e) {}
+        conversationId = newConversationId();
+        saveId(conversationId);
+        agentMessages.innerHTML = '';
+        showGreeting();
+        agentInput.focus();
+    });
+
+    // Long-term: preferences, shown so you can see (and delete) what Copilot remembers
+    const memoryList = document.getElementById('memory-list');
+    const memoryCount = document.getElementById('memory-count');
+
+    async function loadMemory() {
+        try {
+            const response = await fetch(`${API}/api/preferences`);
+            const prefs = response.ok ? await response.json() : [];
+            memoryCount.textContent = prefs.length;
+            memoryList.innerHTML = prefs.length
+                ? prefs.map(p => `
+                    <li>
+                        <span>${escapeHtml(p.text)}</span>
+                        <button class="forget-btn" data-id="${p.id}" title="Forget this"><i class="fa-solid fa-xmark"></i></button>
+                    </li>`).join('')
+                : '<li class="memory-empty">Nothing yet. Tell Copilot your study habits and it will remember them.</li>';
+        } catch (error) {
+            console.error('Could not load memory', error);
+        }
+    }
+
+    memoryList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.forget-btn');
+        if (!btn) return;
+        await fetch(`${API}/api/preferences/${btn.dataset.id}`, { method: 'DELETE' });
+        showToast('Forgotten.');
+        loadMemory();
+    });
+
+    loadConversation();
+    loadMemory();
 
     // Fetch API Functions
     async function loadExistingTasks() {

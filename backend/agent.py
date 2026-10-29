@@ -8,6 +8,9 @@ and we send the result back so the AI can answer in normal words.
 Week 2, THE AGENT LOOP: the AI may ask for tools again and again (check deadlines, then add a task...)
 until it has everything it needs. We stop it after MAX_ROUNDS so it can never loop forever.
 add_task does NOT save by itself: it only prepares the task, and the student clicks Save to confirm.
+
+Week 3, MEMORY (see memory.py): every question also carries the last few messages of this chat,
+and the instructions list the student's saved preferences, so the agent "remembers".
 """
 import json
 import os
@@ -18,6 +21,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 import ai_service
+import memory
 import models
 from database import SessionLocal
 from tasks import TaskUpdate, urgency_score
@@ -25,6 +29,7 @@ from tasks import TaskUpdate, urgency_score
 
 class AgentRequest(BaseModel):
     message: str
+    conversation_id: str = "default"  # the browser makes one per chat; "New chat" starts a new one
 
 
 class ToolUse(BaseModel):
@@ -175,6 +180,8 @@ TOOL_FUNCTIONS = {
     "get_deadlines": get_deadlines,
     "add_task": add_task,
     "edit_task": edit_task,
+    "remember_preference": memory.add_preference,
+    "forget_preference": memory.delete_preference,
 }
 
 
@@ -254,6 +261,39 @@ TOOLS_MENU = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "remember_preference",
+            "description": (
+                "Save something lasting about the student so you remember it in every future chat, "
+                "e.g. 'Doesn't study after 11pm', 'Prefers to start assignments 1 week early', 'Is in Year 2'. "
+                "Use it when the student tells you a habit, rule or fact about themselves, or says 'remember that...'. "
+                "Do not use it for one-off tasks or deadlines (use add_task for those)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "One short sentence, written about the student."},
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "forget_preference",
+            "description": "Delete a saved preference when the student says it is wrong or no longer true.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "preference_id": {"type": "integer", "description": "The id shown in 'What you remember'."},
+                },
+                "required": ["preference_id"],
+            },
+        },
+    },
 ]
 
 
@@ -274,8 +314,23 @@ def _system_prompt() -> str:
         "add_task and edit_task do not save anything: after they work, say it is READY (not saved) "
         "and tell the student to press Save to confirm. "
         "get_deadlines only shows unfinished tasks; to find a task that is further away, use a bigger days_ahead. "
+        "Earlier messages of this chat come before the new question; use them to understand words like "
+        "'it' or 'that one'. If you prepared a task earlier and the student changes it before saving, "
+        "call add_task again with the fix. "
+        "IMPORTANT: to add or change anything you MUST call the tool in this turn. The Save button only appears "
+        "after a real tool call, so never just write that you did it. "
+        "When the student tells you a lasting habit or preference, save it with remember_preference, "
+        "and use what you remember when you give advice.\n"
+        f"What you remember about the student:\n{_preferences_text()}\n"
         "Answer briefly in simple English."
     )
+
+
+def _preferences_text() -> str:
+    prefs = memory.list_preferences()
+    if not prefs:
+        return "- (nothing yet)"
+    return "\n".join(f"- [id {p.id}] {p.text}" for p in prefs)
 
 
 # ---------- 3. Asking the AI, with the tool menu ----------
@@ -322,19 +377,42 @@ def _run_tool(name: str, args_json: Optional[str]) -> tuple:
         return args, {"error": str(e)}
 
 
-def run_agent(user_message: str) -> AgentResponse:
+def run_agent(user_message: str, conversation_id: str = "default") -> AgentResponse:
     if ai_service.USE_FAKE_AI:
         # No AI call, but the tool still runs for real so you can test it for free
         result = get_deadlines(7)
         print(f"[Agent] Fake AI mode: ran get_deadlines(7) -> {len(result)} task(s)")
         titles = ", ".join(t["title"] for t in result) or "nothing"
-        return AgentResponse(
+        response = AgentResponse(
             answer=f"**[FAKE AI]** get_deadlines(7) found: {titles}",
             tools_used=[ToolUse(name="get_deadlines", args={"days_ahead": 7})],
         )
+    else:
+        response = _agent_loop(user_message, conversation_id)
 
+    # The AI sometimes copies our memory note into its answer instead of really using a tool; hide that
+    response.answer = response.answer.split(ACTIONS_NOTE)[0].strip()
+
+    # MEMORY: save both sides of this exchange, so the next question can see them
+    memory.save_message(conversation_id, "user", user_message)
+    memory.save_message(conversation_id, "assistant", response.answer)
+    # Plus a note of the tools it ran, kept as a "system" message so the AI reads it as a fact,
+    # not as an example of how to write its own answers
+    actions = [f"{t.name}({json.dumps(t.args)})" for t in response.tools_used if t.name != "get_deadlines"]
+    if actions:
+        memory.save_message(conversation_id, "system", f"{ACTIONS_NOTE} {'; '.join(actions)}")
+    return response
+
+
+ACTIONS_NOTE = "Tools the assistant actually ran for the message above:"
+
+
+def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
+    # System instructions, then the earlier messages of this chat, then the new question
+    history = [{"role": m.role, "content": m.content} for m in memory.load_history(conversation_id)]
     messages = [
         {"role": "system", "content": _system_prompt()},
+        *history,
         {"role": "user", "content": user_message},
     ]
     tools_used = []

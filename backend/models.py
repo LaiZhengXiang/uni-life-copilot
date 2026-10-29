@@ -1,4 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, JSON
+from datetime import datetime
+
 from database import Base
 
 class TaskRecord(Base):
@@ -19,6 +21,28 @@ class TaskRecord(Base):
     is_done = Column(Boolean, default=False)
     completed_milestones = Column(JSON, default=list)  # positions of the ticked steps, e.g. [0, 2]
 
+
+
+# ---------- Memory for the agent ----------
+
+class ChatMessage(Base):
+    """One message in an Ask Copilot conversation, so the agent remembers what you said earlier."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(String, index=True)
+    role = Column(String)      # "user", "assistant", or "system" (a note of the tools it ran)
+    content = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class Preference(Base):
+    """Something lasting about you, e.g. "I don't study after 11pm". The agent reads these every time."""
+    __tablename__ = "preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
 
 def add_missing_columns(engine):
     """create_all() only makes NEW tables, so add new columns to your existing tasks.db ourselves."""
