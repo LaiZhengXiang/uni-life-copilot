@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=27">
-    <link rel="stylesheet" href="ollie.css?v=21">
+    <link rel="stylesheet" href="style.css?v=28">
+    <link rel="stylesheet" href="ollie.css?v=28">
 </head>
 <!-- data-time (morning / afternoon / evening / night) is set by main.js from your clock -->
 <body data-time="afternoon">
@@ -177,93 +177,90 @@
                     <button class="ollie-btn" id="ollie-btn" aria-label="Pet Ollie">
                         <span class="ollie" id="ollie" data-state="idle">
                             <!-- Ollie the nerdy cat. Moods are set with data-state on #ollie: idle, thinking, explain, happy, oops, sleepy. -->
-                            <svg class="ollie-svg" viewBox="0 0 240 244" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                                <ellipse class="ollie-shadow" cx="120" cy="238" rx="54" ry="5"/>
+                            <svg class="ollie-svg" viewBox="0 0 260 252" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                            <ellipse class="ollie-shadow" cx="130" cy="247" rx="66" ry="5"/>
 
-                                <g class="ollie-all">
-                                    <!-- Small chubby body (drawn first, the big head sits on top of it) -->
-                                    <g class="ollie-body-group">
-                                        <path class="ollie-body" d="M80 238 C70 202 92 170 120 170 C148 170 170 202 160 238 Z"/>
-                                        <ellipse class="ollie-paw-front" cx="103" cy="235" rx="14" ry="8"/>
-                                        <ellipse class="ollie-paw-front" cx="137" cy="235" rx="14" ry="8"/>
+                            <g class="ollie-all">
+                                <!-- Body: a fat little dome, like an "n" -->
+                                <path class="ollie-body" d="M66 250 C66 196 94 172 130 172 C166 172 194 196 194 250 Z"/>
+
+                                <!-- The big head -->
+                                <g class="ollie-head">
+                                    <g class="ollie-ear ollie-ear-left">
+                                        <path class="ollie-ear-out" d="M34 104 L30 16 C30 6 41 4 48 10 L106 56 Z"/>
+                                        <path class="ollie-ear-in" d="M44 88 L41 26 L88 58 Z"/>
+                                    </g>
+                                    <g class="ollie-ear ollie-ear-right">
+                                        <path class="ollie-ear-out" d="M226 104 L230 16 C230 6 219 4 212 10 L154 56 Z"/>
+                                        <path class="ollie-ear-in" d="M216 88 L219 26 L172 58 Z"/>
                                     </g>
 
-                                    <!-- The big head -->
-                                    <g class="ollie-head">
-                                        <g class="ollie-ear ollie-ear-left">
-                                            <path class="ollie-ear-out" d="M38 84 L32 24 C32 15 40 12 47 17 L94 48 Z"/>
-                                            <path class="ollie-ear-in" d="M46 70 L42 32 L80 52 Z"/>
-                                        </g>
-                                        <g class="ollie-ear ollie-ear-right">
-                                            <path class="ollie-ear-out" d="M202 84 L208 24 C208 15 200 12 193 17 L146 48 Z"/>
-                                            <path class="ollie-ear-in" d="M194 70 L198 32 L160 52 Z"/>
-                                        </g>
+                                    <path class="ollie-face" d="M130 44 C188 44 238 72 243 122 C248 172 216 204 172 210 C152 213 108 213 88 210 C44 204 12 172 17 122 C22 72 72 44 130 44 Z"/>
+                                    <!-- warm peach tint on the forehead, like the photos -->
+                                    <path class="ollie-forehead" d="M86 54 C104 46 156 46 174 54 C166 72 150 82 130 84 C110 82 94 72 86 54 Z"/>
 
-                                        <path class="ollie-face" d="M120 34 C170 34 210 60 215 104 C220 146 196 176 158 182 C140 185 100 185 82 182 C44 176 20 146 25 104 C30 60 70 34 120 34 Z"/>
-                                        <!-- warm peach patch on the forehead, like the photos -->
-                                        <path class="ollie-forehead" d="M84 44 C100 37 140 37 156 44 C150 60 136 70 120 72 C104 70 90 60 84 44 Z"/>
-
-                                        <!-- Big dark eyes. Each .ollie-look is moved by main.js so the eyes follow your mouse -->
-                                        <g class="ollie-eyes">
-                                            <g class="ollie-eye">
-                                                <circle class="ollie-eye-white" cx="80" cy="103" r="22"/>
-                                                <g class="ollie-look">
-                                                    <circle class="ollie-iris" cx="81" cy="102" r="19.5"/>
-                                                    <circle class="ollie-pupil" cx="81" cy="102" r="13"/>
-                                                    <circle class="ollie-glint" cx="89" cy="94" r="6"/>
-                                                    <circle class="ollie-glint" cx="73" cy="108" r="2.4"/>
-                                                </g>
-                                            </g>
-                                            <g class="ollie-eye">
-                                                <circle class="ollie-eye-white" cx="160" cy="103" r="22"/>
-                                                <g class="ollie-look">
-                                                    <circle class="ollie-iris" cx="159" cy="102" r="19.5"/>
-                                                    <circle class="ollie-pupil" cx="159" cy="102" r="13"/>
-                                                    <circle class="ollie-glint" cx="167" cy="94" r="6"/>
-                                                    <circle class="ollie-glint" cx="153" cy="108" r="2.4"/>
-                                                </g>
+                                    <!-- Big dark staring eyes. Each .ollie-look is moved by main.js so the eyes follow your mouse -->
+                                    <g class="ollie-eyes">
+                                        <g class="ollie-eye">
+                                            <circle class="ollie-eye-white" cx="84" cy="119" r="24"/>
+                                            <g class="ollie-look">
+                                                <circle class="ollie-iris" cx="85" cy="118" r="21"/>
+                                                <circle class="ollie-pupil" cx="85" cy="118" r="15"/>
+                                                <circle class="ollie-glint" cx="94" cy="109" r="6.5"/>
+                                                <circle class="ollie-glint" cx="77" cy="126" r="2.6"/>
                                             </g>
                                         </g>
-                                        <g class="ollie-eyes-happy">
-                                            <path d="M64 106 Q80 88 96 106"/><path d="M144 106 Q160 88 176 106"/>
+                                        <g class="ollie-eye">
+                                            <circle class="ollie-eye-white" cx="176" cy="119" r="24"/>
+                                            <g class="ollie-look">
+                                                <circle class="ollie-iris" cx="175" cy="118" r="21"/>
+                                                <circle class="ollie-pupil" cx="175" cy="118" r="15"/>
+                                                <circle class="ollie-glint" cx="184" cy="109" r="6.5"/>
+                                                <circle class="ollie-glint" cx="167" cy="126" r="2.6"/>
+                                            </g>
                                         </g>
-                                        <g class="ollie-eyes-closed">
-                                            <path d="M64 102 Q80 112 96 102"/><path d="M144 102 Q160 112 176 102"/>
-                                        </g>
-
-                                        <!-- Black rectangular nerd glasses -->
-                                        <g class="ollie-glasses">
-                                            <rect class="ollie-lens" x="44" y="78" width="72" height="50" rx="11"/>
-                                            <rect class="ollie-lens" x="124" y="78" width="72" height="50" rx="11"/>
-                                            <path class="ollie-frame-top" d="M42 82 L118 82 M122 82 L198 82"/>
-                                            <path class="ollie-frame" d="M116 92 Q120 86 124 92"/>
-                                            <path class="ollie-frame" d="M44 90 L22 84 M196 90 L218 84"/>
-                                            <circle class="ollie-rivet" cx="50" cy="84" r="2"/>
-                                            <circle class="ollie-rivet" cx="190" cy="84" r="2"/>
-                                            <path class="ollie-glare" d="M54 118 L70 90 M130 118 L146 90"/>
-                                        </g>
-
-                                        <!-- Puffy white muzzle, big pink nose, buck teeth (always out) -->
-                                        <g class="ollie-muzzle">
-                                            <ellipse cx="106" cy="160" rx="20" ry="14"/>
-                                            <ellipse cx="134" cy="160" rx="20" ry="14"/>
-                                        </g>
-                                        <g class="ollie-whiskers">
-                                            <path d="M90 152 L34 142"/><path d="M90 158 L36 162"/><path d="M92 165 L44 180"/>
-                                            <path d="M150 152 L206 142"/><path d="M150 158 L204 162"/><path d="M148 165 L196 180"/>
-                                        </g>
-                                        <path class="ollie-nose" d="M97 131 Q120 119 143 131 Q142 148 126 154 Q120 156 114 154 Q98 148 97 131 Z"/>
-                                        <ellipse class="ollie-nose-shine" cx="112" cy="130" rx="8" ry="3.4"/>
-                                        <path class="ollie-mouth" d="M120 155 L120 158 M120 158 C115 162 108 162 103 159 M120 158 C125 162 132 162 137 159"/>
-                                        <g class="ollie-teeth">
-                                            <rect x="108.5" y="158" width="11.5" height="17" rx="3"/>
-                                            <rect x="120" y="158" width="11.5" height="17" rx="3"/>
-                                        </g>
-
-                                        <path class="ollie-sweat" d="M206 62 C201 72 199 77 204 81 C209 85 214 80 212 72 Z"/>
                                     </g>
+                                    <g class="ollie-eyes-happy">
+                                        <path d="M66 124 Q84 102 102 124"/><path d="M158 124 Q176 102 194 124"/>
+                                    </g>
+                                    <g class="ollie-eyes-closed">
+                                        <path d="M66 118 Q84 130 102 118"/><path d="M158 118 Q176 130 194 118"/>
+                                    </g>
+
+                                    <!-- Wayfarer nerd glasses: wide at the top, thick top bar, little silver rivets -->
+                                    <g class="ollie-glasses">
+                                        <path class="ollie-lens" d="M38 92 L124 92 Q128 92 127 98 L120 142 Q118 151 109 151 L58 151 Q49 151 47 142 L37 98 Q36 92 38 92 Z"/>
+                                        <path class="ollie-lens" d="M222 92 L136 92 Q132 92 133 98 L140 142 Q142 151 151 151 L202 151 Q211 151 213 142 L223 98 Q224 92 222 92 Z"/>
+                                        <path class="ollie-frame-top" d="M34 95 L127 95 M133 95 L226 95"/>
+                                        <path class="ollie-frame" d="M126 101 Q130 94 134 101"/>
+                                        <path class="ollie-frame" d="M37 99 L16 94 M223 99 L244 94"/>
+                                        <circle class="ollie-rivet" cx="43" cy="96" r="2.4"/>
+                                        <circle class="ollie-rivet" cx="217" cy="96" r="2.4"/>
+                                        <path class="ollie-glare" d="M58 142 L76 104 M150 142 L168 104"/>
+                                    </g>
+
+                                    <!-- Big puffy muzzle, big pink nose with nostrils, buck teeth (always out) -->
+                                    <g class="ollie-muzzle">
+                                        <ellipse cx="112" cy="186" rx="24" ry="16"/>
+                                        <ellipse cx="148" cy="186" rx="24" ry="16"/>
+                                    </g>
+                                    <g class="ollie-whiskers">
+                                        <path d="M98 178 L8 166"/><path d="M98 186 L6 192"/><path d="M100 194 L18 214"/>
+                                        <path d="M162 178 L252 166"/><path d="M162 186 L254 192"/><path d="M160 194 L242 214"/>
+                                    </g>
+                                    <path class="ollie-nose" d="M106 152 Q130 138 154 152 Q154 170 138 177 Q130 180 122 177 Q106 170 106 152 Z"/>
+                                    <path class="ollie-nostrils" d="M116 163 Q121 168 126 165 M144 163 Q139 168 134 165"/>
+                                    <ellipse class="ollie-nose-shine" cx="121" cy="151" rx="9" ry="3.6"/>
+                                    <path class="ollie-mouth" d="M130 178 L130 182 M130 182 C124 187 116 187 110 183 M130 182 C136 187 144 187 150 183"/>
+                                    <g class="ollie-teeth">
+                                        <rect x="118" y="182" width="12" height="19" rx="3.2"/>
+                                        <rect x="130" y="182" width="12" height="19" rx="3.2"/>
+                                    </g>
+
+                                    <path class="ollie-sweat" d="M232 68 C227 78 225 83 230 87 C235 91 240 86 238 78 Z"/>
                                 </g>
-                            </svg>
+                            </g>
+                        </svg>
                             <span class="ollie-finger" aria-hidden="true">☝️</span>
                             <span class="ollie-thought"><span></span><span></span><span></span></span>
                             <span class="ollie-zzz"><span>z</span><span>z</span><span>Z</span></span>
@@ -331,10 +328,16 @@
             <section class="dock-pop" id="pop-music" role="dialog" aria-labelledby="pop-music-title" hidden>
                 <div class="pop-head">
                     <h3 id="pop-music-title"><i class="fa-solid fa-music" aria-hidden="true"></i> Lo-fi radio</h3>
-                    <button class="icon-btn pop-close" aria-label="Close the radio (stops the music)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                    <button class="icon-btn pop-close" aria-label="Close the radio (music keeps playing in a mini player)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                 </div>
                 <div class="stations" id="stations" role="group" aria-label="Your stations"></div>
-                <div class="radio-player" id="radio-player">
+                <!-- Mini player bar: shows when the radio is shrunk (music keeps playing) -->
+            <div class="radio-mini-bar">
+                <span class="radio-mini-title"><i class="fa-solid fa-music" aria-hidden="true"></i> Lo-fi radio</span>
+                <button class="icon-btn" id="radio-expand" aria-label="Open the radio"><i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i></button>
+                <button class="icon-btn" id="radio-stop" aria-label="Stop the music"><i class="fa-solid fa-stop" aria-hidden="true"></i></button>
+            </div>
+            <div class="radio-player" id="radio-player">
                     <p class="radio-empty">Paste a YouTube link below (a lo-fi live stream works great). It's saved as a station for next time.</p>
                 </div>
                 <form class="radio-link" id="radio-link">
@@ -342,7 +345,7 @@
                     <input type="url" id="radio-url" placeholder="Or paste any YouTube link..." autocomplete="off">
                     <button class="btn btn-soft" type="submit">Play</button>
                 </form>
-                <p class="pop-hint">Music plays while this window is open. <a href="https://www.youtube.com/results?search_query=lofi+live+stream" target="_blank" rel="noopener">Find a stream on YouTube</a></p>
+                <p class="pop-hint">Close this and the music keeps playing in a mini player. <a href="https://www.youtube.com/results?search_query=lofi+live+stream" target="_blank" rel="noopener">Find a stream on YouTube</a></p>
             </section>
 
             <!-- Ambient sounds, made live in your browser (no sound files) -->
@@ -439,6 +442,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=24"></script>
+    <script src="main.js?v=28"></script>
 </body>
 </html>

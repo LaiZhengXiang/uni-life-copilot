@@ -18,6 +18,25 @@ Make them 16:9, at least 1920x1080, and save as WebP (or tell Claude to convert 
 These pictures are made by us with an AI tool. The reference pictures used for the idea
 belong to other people and are not used in the app.
 
+## Better: an ultra-wide room (fits wide laptop screens with nothing important cut off)
+
+Most browser windows are wider than 16:9, so a 16:9 picture gets its top and bottom trimmed.
+An ultra-wide picture with everything important near the middle fixes that. Use this instead of
+prompt 1 below, then do the same edits (afternoon, evening, night) on it. The page reads the
+picture's size by itself; after you add new pictures, ask Claude to move the clickable spots
+(clock, calendar, lamp, drawer) onto the new positions.
+
+Ultra-wide 21:9 anime film background illustration of a cozy student study bedroom, seen straight on
+from eye level. Painterly, hand-painted look with soft brush texture, rich small details, cinematic
+lighting, gentle light rays and floating dust, warm nostalgic everyday atmosphere. Keep every
+important object inside the middle 60% of the width and the middle 70% of the height: a wooden study
+desk in the center with a large window behind it showing a quiet town and the sky, a round wall
+clock and a paper wall calendar on the wall just left of the window, a bendable desk lamp on the
+left end of the desk, a small drawer unit under the desk, and a clear empty spot in the middle of
+the desktop. The far left and far right edges are calm and simple (plain wall, curtains, a plant,
+part of a bookshelf) so they can be trimmed on narrower screens. No people, no animals, no text,
+no logos. Time: morning, soft cool sunlight, fresh blue sky with light clouds.
+
 ## 1. Morning (generate this first)
 
 Wide 16:9 anime film background illustration of a cozy student study bedroom, seen from eye level

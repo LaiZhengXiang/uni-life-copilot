@@ -318,25 +318,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const roomBtn = document.getElementById('room-btn');
     const roomSpeech = document.getElementById('room-speech');
     const roomOllieSpot = document.getElementById('room-ollie-spot');
-    const ROOM_PICTURE = { width: 1672, height: 940, focusY: 0.4 };   // size of the room pictures; 0.4 matches "center 40%" in the CSS
+    const ROOM_PICTURE = { width: 1672, height: 940 };   // updated below with the picture's real size
     const OLLIE_ON_DESK = { x: 0.69, bottom: 0.735, height: 0.25 };   // where Ollie sits in the picture
 
     // Finds where the picture really is on screen, so the clickable spots line up with the objects.
-    // Wide screens show the whole picture ("contain", centred); tall screens fill the screen
-    // ("cover") slid to 66% so the desk is in view. These match the CSS for .room-art.
+    // The picture always fills the screen ("cover"): wide screens anchor it at 50% / 20% (clock in view),
+    // tall screens (phones) slide it to 66% / 40% so the desk is in view. These match the CSS for .room-art.
     function pictureBox() {
         const tall = innerWidth < innerHeight;
-        const fit = tall ? Math.max : Math.min;
-        const scale = fit(innerWidth / ROOM_PICTURE.width, innerHeight / ROOM_PICTURE.height);
+        const scale = Math.max(innerWidth / ROOM_PICTURE.width, innerHeight / ROOM_PICTURE.height);
         const width = ROOM_PICTURE.width * scale;
         const height = ROOM_PICTURE.height * scale;
         return {
             left: (innerWidth - width) * (tall ? 0.66 : 0.5),
-            top: (innerHeight - height) * (tall ? ROOM_PICTURE.focusY : 0.5),
+            top: (innerHeight - height) * (tall ? 0.4 : 0.2),
             width,
             height,
         };
     }
+
+    // Read the room picture's real size, so a new picture (for example an ultra-wide one) just works
+    const sizeCheck = new Image();
+    sizeCheck.onload = () => {
+        ROOM_PICTURE.width = sizeCheck.naturalWidth;
+        ROOM_PICTURE.height = sizeCheck.naturalHeight;
+        if (!roomObjects.hidden) placeRoomObjects();
+    };
+    sizeCheck.src = 'assets/room/room-morning.webp';
 
     function placeRoomObjects() {
         const pic = pictureBox();
@@ -350,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         const ollieHeight = OLLIE_ON_DESK.height * pic.height;
-        const ollieWidth = ollieHeight * 200 / 210;   // the drawing is 200 x 210
+        const ollieWidth = ollieHeight * 260 / 252;   // the drawing is 260 x 252
         Object.assign(roomOllieSpot.style, {
             width: `${ollieWidth}px`,
             left: `${pic.left + OLLIE_ON_DESK.x * pic.width - ollieWidth / 2}px`,
@@ -453,29 +461,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const POPS = ['music', 'sounds', 'notes'];
     const popEl = (name) => document.getElementById(`pop-${name}`);
     const isPopOpen = (name) => !popEl(name).hidden;
+    const radioIsMini = () => popEl('music').classList.contains('is-mini');
+    const radioIsPlaying = () => document.querySelector('.dock-btn[data-pop="music"]').classList.contains('is-playing');
+    const isPanelOpen = (name) => isPopOpen(name) && !(name === 'music' && radioIsMini());   // the mini player isn't a panel
     let openPop = null;   // the panel opened last (Esc closes this one first)
 
     function closePop(name) {
         popEl(name).hidden = true;
-        if (name === 'music') stopRadio();   // YouTube's player must stay visible, so closing it stops the music
+        if (name === 'music') {
+            popEl('music').classList.remove('is-mini');
+            stopRadio();
+        }
     }
 
-    // Opens a panel (or closes it if it's already open). On big screens the radio stays open
-    // next to the other panel, so you can have lo-fi and rain together; on phones it's one at a time.
+    // The radio can't just disappear while it plays (YouTube's player must stay visible),
+    // so "closing" it shrinks it into a small mini player that keeps playing
+    function setRadioMini(on) {
+        popEl('music').classList.toggle('is-mini', on);
+        syncDock();
+    }
+
+    function syncDock() {
+        appBox.classList.toggle('music-open', isPanelOpen('music'));
+        appBox.classList.toggle('music-mini', isPopOpen('music') && radioIsMini());
+        dockButtons.forEach(b => b.setAttribute('aria-expanded', String(isPanelOpen(b.dataset.pop))));
+    }
+
+    function focusPanel(name) {
+        (popEl(name).querySelector('.station, #radio-url, textarea, .sound-toggle') || popEl(name).querySelector('button')).focus();
+    }
+
+    // Opens a panel, or closes it if it's already open. On big screens the radio stays open
+    // next to the other panel, so you can have lo-fi and rain together; on phones the radio shrinks instead.
     function setPop(name) {
-        if (isPopOpen(name)) {
+        if (name === 'music') {
+            if (!isPopOpen('music') || radioIsMini()) {        // open it (or grow the mini player back)
+                popEl('music').hidden = false;
+                popEl('music').classList.remove('is-mini');
+                focusPanel('music');
+            } else if (radioIsPlaying()) {
+                setRadioMini(true);                           // keep the music going
+            } else {
+                closePop('music');
+            }
+        } else if (isPopOpen(name)) {
             closePop(name);
         } else {
-            const sideBySide = innerWidth >= 1024;
-            POPS.forEach(other => {
-                if (other !== name && isPopOpen(other) && !(other === 'music' && sideBySide)) closePop(other);
-            });
+            POPS.forEach(other => { if (other !== name && other !== 'music' && isPopOpen(other)) closePop(other); });
+            if (isPanelOpen('music') && innerWidth < 1024) {
+                if (radioIsPlaying()) setRadioMini(true); else closePop('music');
+            }
             popEl(name).hidden = false;
-            (popEl(name).querySelector('.station, textarea, .sound-toggle') || popEl(name).querySelector('button')).focus();
+            focusPanel(name);
         }
-        openPop = POPS.filter(isPopOpen).find(p => p === name) || POPS.find(isPopOpen) || null;
-        appBox.classList.toggle('music-open', isPopOpen('music'));
-        dockButtons.forEach(b => b.setAttribute('aria-expanded', String(isPopOpen(b.dataset.pop))));
+        openPop = isPanelOpen(name) ? name : (POPS.find(isPanelOpen) || null);
+        syncDock();
     }
 
     dockButtons.forEach(b => b.addEventListener('click', () => setPop(b.dataset.pop)));
@@ -484,6 +524,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setPop(name);
         document.querySelector(`.dock-btn[data-pop="${name}"]`).focus();
     }));
+    document.getElementById('radio-expand').addEventListener('click', () => setPop('music'));
+    document.getElementById('radio-stop').addEventListener('click', () => {
+        closePop('music');
+        openPop = POPS.find(isPanelOpen) || null;
+        syncDock();
+        document.querySelector('.dock-btn[data-pop="music"]').focus();
+    });
 
     // Lo-fi radio: a YouTube live stream in a small visible player
     const radioPlayer = document.getElementById('radio-player');
@@ -553,40 +600,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const sounds = {};
     const soundsBtn = document.querySelector('.dock-btn[data-pop="sounds"]');
 
+    // 3 seconds of noise, made once per kind and reused (drops and crackles use it many times a second)
+    const noiseCache = {};
     function noiseBuffer(kind) {
+        if (noiseCache[kind]) return noiseCache[kind];
         const ctx = audio;
         const buffer = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate);
         const data = buffer.getChannelData(0);
         let last = 0;
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
         for (let i = 0; i < data.length; i++) {
             const white = Math.random() * 2 - 1;
             if (kind === 'brown') {          // deep rumble: each sample drifts from the last one
                 last = (last + 0.02 * white) / 1.02;
                 data[i] = last * 3.5;
+            } else if (kind === 'pink') {    // softer than white noise, like steady rain (Paul Kellet's recipe)
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                b3 = 0.86650 * b3 + white * 0.3104856;
+                b4 = 0.55000 * b4 + white * 0.5329522;
+                b5 = -0.7616 * b5 - white * 0.0168980;
+                data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+                b6 = white * 0.115926;
             } else {
                 data[i] = white;
             }
         }
+        noiseCache[kind] = buffer;
         return buffer;
     }
 
-    // Each sound is noise shaped by filters: rain = hiss, fire = rumble + crackles, wind = swelling whoosh
+    // Small helpers for building sounds
+    function loopNoise(kind) {
+        const src = audio.createBufferSource();
+        src.buffer = noiseBuffer(kind);
+        src.loop = true;
+        return src;
+    }
+    function filter(type, frequency, q = 0.7) {
+        const f = audio.createBiquadFilter();
+        f.type = type;
+        f.frequency.value = frequency;
+        f.Q.value = q;
+        return f;
+    }
+    function gainNode(value) {
+        const g = audio.createGain();
+        g.gain.value = value;
+        return g;
+    }
+
+    // Each sound is noise shaped by filters: rain = soft downpour + patter + drops,
+    // fire = rumble + crackles, wind = swelling whoosh
     const SOUND_RECIPES = {
         rain(out) {
-            const src = audio.createBufferSource();
-            src.buffer = noiseBuffer('white');
-            src.loop = true;
-            const high = audio.createBiquadFilter();
-            high.type = 'highpass';
-            high.frequency.value = 900;
-            const low = audio.createBiquadFilter();
-            low.type = 'lowpass';
-            low.frequency.value = 7000;
-            const level = audio.createGain();
-            level.gain.value = 0.35;
-            src.connect(high).connect(low).connect(level).connect(out);
-            src.start();
-            return () => src.stop();
+            // 1. the steady downpour: pink noise (softer than white), with the harsh top cut off
+            const bed = loopNoise('pink');
+            const bedLevel = gainNode(0.5);
+            bed.connect(filter('highpass', 150)).connect(filter('lowpass', 1600)).connect(bedLevel).connect(out);
+            // the downpour gets a little heavier and lighter, slowly, like real rain
+            const swell = audio.createOscillator();
+            swell.frequency.value = 0.06;
+            swell.connect(gainNode(0.12)).connect(bedLevel.gain);
+            // 2. the patter: a quiet, brighter layer on top
+            const patter = loopNoise('pink');
+            patter.connect(filter('bandpass', 3200, 0.6)).connect(gainNode(0.08)).connect(out);
+            bed.start();
+            patter.start(0, 1.3);   // start at a different spot so the two layers don't line up
+            swell.start();
+            // 3. single drops tapping the window now and then
+            let timer = null;
+            const drop = () => {
+                const tap = audio.createBufferSource();
+                tap.buffer = noiseBuffer('white');
+                const env = audio.createGain();
+                const now = audio.currentTime;
+                env.gain.setValueAtTime(0.03 + Math.random() * 0.07, now);
+                env.gain.exponentialRampToValueAtTime(0.0005, now + 0.02 + Math.random() * 0.03);
+                tap.connect(filter('bandpass', 2200 + Math.random() * 3500, 4)).connect(env).connect(out);
+                tap.start(now, Math.random() * 2, 0.06);
+                timer = setTimeout(drop, 40 + Math.random() * 180);
+            };
+            drop();
+            return () => { bed.stop(); patter.stop(); swell.stop(); clearTimeout(timer); };
         },
         fire(out) {
             const src = audio.createBufferSource();

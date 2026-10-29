@@ -231,7 +231,9 @@ body[data-time="night"][data-night-art="missing"] { --room-img: url("assets/room
     filter: blur(28px) brightness(0.8) saturate(1.1);
     transform: scale(1.08);   /* hides the soft blurry edge */
 }
-.room-art { background-size: contain; background-image: var(--room-img); }
+/* Fill the whole screen, anchored near the top so the clock stays in view.
+   (main.js uses the same 50% / 20% when it places the clickable spots.) */
+.room-art { background-size: cover; background-position: 50% 20%; background-image: var(--room-img); }
 body[data-time="night"][data-night-art="missing"] .room-art,
 body[data-time="night"][data-night-art="missing"] .room-fill { filter: brightness(0.5) saturate(0.7); }
 body[data-time="night"][data-night-art="missing"] .room-fill { filter: blur(28px) brightness(0.4) saturate(0.7); }
@@ -1364,12 +1366,12 @@ body[data-time="night"][data-night-art="missing"] .room-shade {
    A light tint keeps the text readable; the blur and boosted colour do the rest,
    and a bright top edge plus a soft shine make it look like real glass.
    ========================================================= */
-:root { --blur: blur(26px) saturate(1.8) brightness(1.05); }
+:root { --blur: blur(30px) saturate(1.9) brightness(1.06); }
 
 body[data-time="morning"],
 body[data-time="afternoon"] {
-    --glass: rgba(255, 255, 255, 0.34);
-    --glass-strong: rgba(255, 255, 255, 0.62);
+    --glass: rgba(255, 255, 255, 0.16);
+    --glass-strong: rgba(255, 255, 255, 0.46);
     --glass-edge: rgba(255, 255, 255, 0.70);
     --glass-edge-soft: rgba(255, 255, 255, 0.30);
     --glass-shine: rgba(255, 255, 255, 0.45);
@@ -1377,8 +1379,8 @@ body[data-time="afternoon"] {
 }
 body[data-time="evening"],
 body[data-time="night"] {
-    --glass: rgba(18, 14, 30, 0.42);
-    --glass-strong: rgba(18, 14, 30, 0.66);
+    --glass: rgba(18, 14, 30, 0.24);
+    --glass-strong: rgba(18, 14, 30, 0.52);
     --glass-edge: rgba(255, 255, 255, 0.24);
     --glass-edge-soft: rgba(255, 255, 255, 0.08);
     --glass-shine: rgba(255, 255, 255, 0.12);
@@ -1897,4 +1899,51 @@ body { display: flow-root; }
 }
 @media (max-width: 640px) {
     .user-chip { display: none; }   /* not needed on a phone; leaves room for the buttons */
+}
+
+/* =========================================================
+   Radio mini player: the radio shrinks instead of stopping
+   ========================================================= */
+.radio-mini-bar { display: none; }
+#pop-music.is-mini {
+    width: 240px;
+    padding: 8px;
+    gap: 6px;
+}
+#pop-music.is-mini > :not(.radio-mini-bar):not(.radio-player) { display: none; }
+#pop-music.is-mini .radio-mini-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.radio-mini-title {
+    flex: 1;
+    min-width: 0;
+    padding-left: 4px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.radio-mini-title i { margin-right: 4px; color: var(--accent-text); }
+.radio-mini-bar .icon-btn { width: 32px; height: 32px; font-size: 0.8rem; }
+/* YouTube asks for a player of at least 200 x 200, so the mini one stays that size */
+#pop-music.is-mini .radio-player { aspect-ratio: auto; height: 200px; min-height: 200px; }
+
+/* Big screens: other panels open next to the mini player */
+@media (min-width: 1024px) {
+    .app-box.music-mini #pop-sounds,
+    .app-box.music-mini #pop-notes { left: 252px; }
+}
+/* Phones: the mini player waits in the top corner, out of the way of the panels */
+@media (max-width: 1023px) {
+    #pop-music.is-mini {
+        top: 72px;
+        right: 12px;
+        bottom: auto;
+        left: auto;
+        width: 220px;
+        z-index: 45;
+    }
 }

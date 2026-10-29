@@ -20,7 +20,6 @@
 .ollie-body { fill: url(#ollie-body-fur); }
 .ollie-forehead { fill: #E9BE93; opacity: 0.45; }
 .ollie-ear-in { fill: #EDB8A8; }
-.ollie-paw-front,
 .ollie-muzzle ellipse { fill: #FFFBF6; }
 .ollie-eye-white { fill: #FFFFFF; }
 .ollie-iris { fill: #4A3022; }
@@ -33,20 +32,23 @@
 .ollie-frame { fill: none; stroke: #141414; stroke-width: 7; stroke-linecap: round; }
 .ollie-rivet { fill: #C9C9C9; }
 .ollie-glare { fill: none; stroke: #FFFFFF; stroke-width: 3; stroke-linecap: round; opacity: 0.35; }
-.ollie-nose { fill: #E59E94; }
+.ollie-nose { fill: #DE958C; }
+.ollie-nostrils { fill: none; stroke: #93524C; stroke-width: 3; stroke-linecap: round; }
 .ollie-nose-shine { fill: #FFFFFF; opacity: 0.45; }
 .ollie-mouth { fill: none; stroke: #8A5A4A; stroke-width: 2.2; stroke-linecap: round; }
 .ollie-teeth rect { fill: #FFFFFF; stroke: #CFC4B8; stroke-width: 1; }
-.ollie-whiskers path { fill: none; stroke: #B49C88; stroke-width: 1.4; stroke-linecap: round; opacity: 0.75; }
+/* white whiskers with a soft shadow, so they show on the fur and on the background */
+.ollie-whiskers { filter: drop-shadow(0 0 1px rgba(70, 50, 40, 0.7)); }
+.ollie-whiskers path { fill: none; stroke: #FFFFFF; stroke-width: 1.6; stroke-linecap: round; }
 .ollie-sweat { fill: #8EC9FF; stroke: #4F8FD0; stroke-width: 1.2; }
 
 /* ---------- The ☝️ emoji (a real emoji: on iPhone and Mac it's the iPhone one) ---------- */
 .ollie-finger {
     position: absolute;
-    right: -10%;
-    top: 40%;
+    left: -14%;
+    top: 44%;
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    font-size: 34cqw;
+    font-size: 36cqw;
     line-height: 1;
     pointer-events: none;
     transform-origin: 50% 90%;
