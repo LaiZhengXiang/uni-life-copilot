@@ -1,14 +1,16 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 import ai_service
 import agent
 import models
+import tasks
 from database import engine, SessionLocal
 
 # Create database tables automatically
 models.Base.metadata.create_all(bind=engine)
+models.add_missing_columns(engine)
 
 app = FastAPI(
     title="Uni-Life Copilot API",
@@ -37,12 +39,15 @@ async def health_check():
     """Simple endpoint to test connection between frontend and backend."""
     return {"message": "Successfully connected to Uni-Life Copilot Backend!", "status": "ok"}
 
-@app.get("/api/tasks", response_model=List[ai_service.ParsedDocument])
-async def get_tasks(db: Session = Depends(get_db)):
-    """Fetch all saved tasks from the database sorted by urgency descending."""
-    tasks = db.query(models.TaskRecord).order_by(models.TaskRecord.urgency_score.desc()).all()
-    # The Pydantic model response_model handles serialization
-    return tasks
+@app.get("/api/tasks", response_model=List[tasks.TaskOut])
+async def get_tasks():
+    """All saved tasks: unfinished ones first, soonest deadline first."""
+    return tasks.list_tasks()
+
+@app.patch("/api/tasks/{task_id}", response_model=tasks.TaskOut)
+async def edit_task(task_id: int, changes: tasks.TaskUpdate):
+    """Edit a task, tick its steps, or mark it done. Only the fields you send are changed."""
+    return tasks.update_task(task_id, changes)
 
 @app.post("/api/parse-assignment", response_model=List[ai_service.ParsedDocument])
 async def parse_assignment(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -106,10 +111,14 @@ async def chat_document(req: ai_service.ChatRequest, db: Session = Depends(get_d
     answer = ai_service.chat_with_document(task.raw_text, req.question)
     return {"answer": answer}
 
-@app.get("/api/calendar/sync")
-async def sync_calendar():
-    """Endpoint for syncing to Google Calendar (To be implemented)"""
-    return {"message": "Google Calendar sync endpoint - Not implemented yet"}
+@app.get("/api/calendar.ics")
+async def download_calendar():
+    """Your unfinished deadlines as a calendar file to import into Google Calendar or your phone."""
+    return Response(
+        content=tasks.build_calendar(),
+        media_type="text/calendar",
+        headers={"Content-Disposition": 'attachment; filename="unilife-deadlines.ics"'},
+    )
 
 @app.post("/api/agent", response_model=agent.AgentResponse)
 async def ask_agent(req: agent.AgentRequest):
@@ -118,7 +127,7 @@ async def ask_agent(req: agent.AgentRequest):
         raise HTTPException(status_code=400, detail="Please type a question.")
     return agent.run_agent(req.message)
 
-@app.post("/api/agent/save-task", response_model=ai_service.ParsedDocument)
+@app.post("/api/agent/save-task", response_model=tasks.TaskOut)
 async def save_agent_task(task: agent.PendingTask):
     """The student clicked Save on a task the agent prepared, so now we really save it."""
     return agent.save_task(task)

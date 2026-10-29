@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -21,14 +21,21 @@
             </div>
             
             <div class="nav-links">
-                <a href="#" class="active">Dashboard</a>
-                <a href="#">Task Planner</a>
-                <a href="#">Lecture Summarizer</a>
-                <a href="#">Calendar Sync</a>
+                <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
+                <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" download>
+                    <i class="fa-regular fa-calendar-plus"></i> Add deadlines to my calendar
+                </a>
             </div>
-            
+
             <div class="user-profile">
-                <button class="icon-btn"><i class="fa-regular fa-bell"></i></button>
+                <!-- Bell: what's due in the next 3 days -->
+                <div class="bell-wrapper">
+                    <button class="icon-btn" id="bell-btn" title="Due soon">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="bell-count" id="bell-count" hidden></span>
+                    </button>
+                    <div class="bell-dropdown" id="bell-dropdown" hidden></div>
+                </div>
                 <div class="avatar-container">
                     <img src="https://ui-avatars.com/api/?name=Zheng+Xiang&background=random" alt="User Avatar" class="avatar">
                     <span class="user-name">Zheng Xiang</span>
@@ -100,8 +107,8 @@
                 <div class="glass-panel board-panel">
                     <div class="board-header">
                         <div class="board-title-area">
-                            <h2>Extracted Task Board</h2>
-                            <p>Review generated work plans and extracted priorities.</p>
+                            <h2>Your Task Board</h2>
+                            <p>Tick off steps as you go. Finished tasks move to the bottom.</p>
                         </div>
                         <div class="view-toggles">
                             <button class="toggle-btn active">Grid View</button>
@@ -111,56 +118,10 @@
 
                     <div class="cards-layout">
                         
-                        <!-- Latest Extraction Mockup -->
-                        <div class="extraction-col">
-                            <div class="col-header">
-                                <span class="dot blue"></span> LATEST EXTRACTION
-                            </div>
-                            
-                            <div class="task-card">
-                                <div class="card-tags">
-                                    <span class="tag gray">ESSAY / REPORT</span>
-                                    <span class="tag red"><span class="dot red-dot"></span> CRITICAL URGENCY</span>
-                                </div>
-                                
-                                <h3 class="card-title">Calculus III: Fluid Dynamics Analysis</h3>
-                                <p class="card-desc">Analyze Navier-Stokes equations and submit a 5-page draft with velocity field plots.</p>
-                                
-                                <div class="deadline-box">
-                                    <i class="fa-regular fa-calendar"></i>
-                                    <div class="deadline-text">
-                                        <span class="deadline-label">DEADLINE DATE</span>
-                                        <span class="deadline-value">Friday, Oct 24 at 11:59 PM <span class="red-text">(2 days left)</span></span>
-                                    </div>
-                                </div>
-
-                                <div class="extracted-steps">
-                                    <h4>AUTOMATICALLY EXTRACTED STEPS</h4>
-                                    <ul>
-                                        <li class="completed"><i class="fa-solid fa-circle-check"></i> Solve Navier-Stokes boundary equations</li>
-                                        <li><i class="fa-regular fa-circle"></i> Plot velocity vector field in Python/Matplotlib</li>
-                                        <li><i class="fa-regular fa-circle"></i> Write introduction and methodology chapters</li>
-                                    </ul>
-                                </div>
-
-                                <div class="card-footer">
-                                    <div class="source-file"><i class="fa-solid fa-file-pdf"></i> Calculus-III-Syllabus.pdf</div>
-                                    <a href="#" class="launch-link">Launch Copilot Workspace <i class="fa-solid fa-chevron-right"></i></a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Next Generation Empty State -->
-                        <div class="extraction-col">
-                            <div class="col-header">
-                                <span class="dot gray"></span> NEXT GENERATION
-                            </div>
-                            
-                            <div class="waiting-card">
-                                <i class="fa-solid fa-wand-magic-sparkles waiting-icon"></i>
-                                <h3>Waiting for Copilot generation...</h3>
-                                <p>Upload a syllabus, assignment brief, or lecture slide to instantly extract smart study tasks.</p>
-                            </div>
+                        <!-- Filled in by main.js with your real tasks -->
+                        <div class="waiting-card" style="grid-column: 1 / -1;">
+                            <i class="fa-solid fa-spinner fa-spin waiting-icon"></i>
+                            <h3>Loading your tasks...</h3>
                         </div>
 
                     </div>
@@ -195,6 +156,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=3"></script>
+    <script src="main.js?v=4"></script>
 </body>
 </html>

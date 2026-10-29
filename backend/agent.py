@@ -20,6 +20,7 @@ from pydantic import BaseModel
 import ai_service
 import models
 from database import SessionLocal
+from tasks import TaskUpdate, urgency_score
 
 
 class AgentRequest(BaseModel):
@@ -40,10 +41,18 @@ class PendingTask(BaseModel):
     details: str = ""
 
 
+class PendingEdit(BaseModel):
+    """Changes the agent wants to make to a saved task. Only applied after the student clicks Save."""
+    task_id: int
+    task_title: str
+    changes: dict  # only the fields that change, e.g. {"deadline": "2026-11-06T15:00:00"}
+
+
 class AgentResponse(BaseModel):
     answer: str
     tools_used: List[ToolUse]  # shown in the UI so you can see the agent "doing" things
     pending_task: Optional[PendingTask] = None  # the UI shows a Save / Cancel card for it
+    pending_edit: Optional[PendingEdit] = None  # same idea, for changing an existing task
 
 
 MAX_ROUNDS = 5  # the most times the AI may ask for tools in one question
@@ -62,6 +71,7 @@ def get_deadlines(days_ahead: int = 7) -> List[dict]:
         tasks = (
             db.query(models.TaskRecord)
             .filter(models.TaskRecord.deadline.isnot(None))
+            .filter(models.TaskRecord.is_done.isnot(True))  # finished tasks don't need reminding
             .filter(models.TaskRecord.deadline >= start_of_today)
             .filter(models.TaskRecord.deadline < until)
             .order_by(models.TaskRecord.deadline)
@@ -70,12 +80,14 @@ def get_deadlines(days_ahead: int = 7) -> List[dict]:
         # Send only what the AI needs (not the whole PDF text), to keep it cheap
         return [
             {
+                "task_id": t.id,  # edit_task needs this to know which task to change
                 "title": t.title,
                 "course": t.course_name,
                 "deadline": t.deadline.strftime("%A %d %B %Y, %I:%M %p"),
                 "urgency_score": t.urgency_score,
                 "estimated_hours": t.estimated_hours,
                 "milestones": t.milestones,
+                "steps_done": f"{len(t.completed_milestones or [])} of {len(t.milestones or [])}",
             }
             for t in tasks
         ]
@@ -83,15 +95,23 @@ def get_deadlines(days_ahead: int = 7) -> List[dict]:
         db.close()
 
 
-def add_task(title: str, course_name: str, deadline: str,
-             estimated_hours: Optional[int] = None, details: str = "") -> dict:
-    """Prepares a new task. It is NOT saved yet: the student must click Save first."""
+def _read_deadline(deadline: str):
+    """Turns '2026-11-05 23:59' into a datetime. Returns an error message if it can't be used."""
     try:
         when = datetime.strptime(deadline.strip(), "%Y-%m-%d %H:%M")
     except ValueError:
-        return {"error": "deadline must look like 2026-11-05 23:59"}
+        return None, "deadline must look like 2026-11-05 23:59"
     if when < datetime.now():
-        return {"error": "That deadline is in the past. Ask the student for the right date."}
+        return None, "That deadline is in the past. Ask the student for the right date."
+    return when, None
+
+
+def add_task(title: str, course_name: str, deadline: str,
+             estimated_hours: Optional[int] = None, details: str = "") -> dict:
+    """Prepares a new task. It is NOT saved yet: the student must click Save first."""
+    when, error = _read_deadline(deadline)
+    if error:
+        return {"error": error}
     task = PendingTask(title=title, course_name=course_name, deadline=when,
                        estimated_hours=estimated_hours, details=details)
     # The weekday helps the AI notice if it picked the wrong date
@@ -99,10 +119,32 @@ def add_task(title: str, course_name: str, deadline: str,
             "task": task.model_dump(mode="json")}
 
 
-def _urgency_score(deadline: datetime) -> int:
-    """10 = due today, going down by 1 every 2 days, never below 1."""
-    days_left = (deadline - datetime.now()).days
-    return max(1, min(10, 10 - days_left // 2))
+def edit_task(task_id: int, title: Optional[str] = None, course_name: Optional[str] = None,
+              deadline: Optional[str] = None, estimated_hours: Optional[int] = None,
+              details: Optional[str] = None, is_done: Optional[bool] = None) -> dict:
+    """Prepares changes to a saved task. Nothing changes until the student clicks Save."""
+    db = SessionLocal()
+    try:
+        task = db.query(models.TaskRecord).filter(models.TaskRecord.id == int(task_id)).first()
+    finally:
+        db.close()
+    if not task:
+        return {"error": f"There is no task with task_id {task_id}. Use get_deadlines to find the right one."}
+
+    changes = {"title": title, "course_name": course_name, "estimated_hours": estimated_hours,
+               "details": details, "is_done": is_done}
+    changes = {name: value for name, value in changes.items() if value is not None}  # only what changes
+    if deadline:
+        when, error = _read_deadline(deadline)
+        if error:
+            return {"error": error}
+        changes["deadline"] = when
+    if not changes:
+        return {"error": "Nothing to change. Ask the student what they want to change."}
+
+    checked = TaskUpdate(**changes).model_dump(mode="json", exclude_unset=True)  # checks the types
+    edit = PendingEdit(task_id=task.id, task_title=task.title, changes=checked)
+    return {"status": "waiting_for_student_to_click_save", "edit": edit.model_dump()}
 
 
 def save_task(task: PendingTask) -> models.TaskRecord:
@@ -118,7 +160,7 @@ def save_task(task: PendingTask) -> models.TaskRecord:
             estimated_hours=task.estimated_hours,
             key_concepts=[],
             milestones=[],
-            urgency_score=_urgency_score(task.deadline),
+            urgency_score=urgency_score(task.deadline),
         )
         db.add(record)
         db.commit()
@@ -132,6 +174,7 @@ def save_task(task: PendingTask) -> models.TaskRecord:
 TOOL_FUNCTIONS = {
     "get_deadlines": get_deadlines,
     "add_task": add_task,
+    "edit_task": edit_task,
 }
 
 
@@ -187,6 +230,30 @@ TOOLS_MENU = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_task",
+            "description": (
+                "Change a task that is already on the board: rename it, move its deadline, change its hours "
+                "or notes, or mark it as done. Call get_deadlines first to find the task_id. "
+                "Only send the fields that change. Nothing is saved until the student clicks Save."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "integer", "description": "The task_id from get_deadlines."},
+                    "title": {"type": "string", "description": "New title."},
+                    "course_name": {"type": "string", "description": "New course."},
+                    "deadline": {"type": "string", "description": "New due date as 'YYYY-MM-DD HH:MM' (24-hour)."},
+                    "estimated_hours": {"type": "integer", "description": "New hours estimate."},
+                    "details": {"type": "string", "description": "New notes."},
+                    "is_done": {"type": "boolean", "description": "true when the student says they finished it."},
+                },
+                "required": ["task_id"],
+            },
+        },
+    },
 ]
 
 
@@ -204,8 +271,9 @@ def _system_prompt() -> str:
         "Use your tools to look up the student's real data; never make up deadlines. "
         "You may use several tools one after another, for example check the deadlines before adding a task "
         "so you don't add the same task twice. "
-        "add_task does not save anything: after it works, say the task is READY (not saved) "
+        "add_task and edit_task do not save anything: after they work, say it is READY (not saved) "
         "and tell the student to press Save to confirm. "
+        "get_deadlines only shows unfinished tasks; to find a task that is further away, use a bigger days_ahead. "
         "Answer briefly in simple English."
     )
 
@@ -271,6 +339,7 @@ def run_agent(user_message: str) -> AgentResponse:
     ]
     tools_used = []
     pending_task = None
+    pending_edit = None
 
     # THE AGENT LOOP: ask -> run the tools it wants -> ask again ... until it answers in words
     for round_number in range(1, MAX_ROUNDS + 1):
@@ -281,7 +350,8 @@ def run_agent(user_message: str) -> AgentResponse:
 
         if not tool_calls:
             print(f"[Agent] Final answer after {round_number} round(s)")
-            return AgentResponse(answer=reply.get("content") or "", tools_used=tools_used, pending_task=pending_task)
+            return AgentResponse(answer=reply.get("content") or "", tools_used=tools_used,
+                                 pending_task=pending_task, pending_edit=pending_edit)
 
         # Run each tool the AI asked for, and add the results to the conversation
         messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": tool_calls})
@@ -292,7 +362,10 @@ def run_agent(user_message: str) -> AgentResponse:
             tools_used.append(ToolUse(name=name, args=args))
             if name == "add_task" and isinstance(result, dict) and "task" in result:
                 pending_task = PendingTask(**result["task"])  # the UI will show Save / Cancel
+            if name == "edit_task" and isinstance(result, dict) and "edit" in result:
+                pending_edit = PendingEdit(**result["edit"])
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(result)})
 
     # Not reached (the last round has no tools), but just in case
-    return AgentResponse(answer="Sorry, I got stuck. Please ask again.", tools_used=tools_used, pending_task=pending_task)
+    return AgentResponse(answer="Sorry, I got stuck. Please ask again.", tools_used=tools_used,
+                         pending_task=pending_task, pending_edit=pending_edit)

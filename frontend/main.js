@@ -28,12 +28,73 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // Nav Links
-    document.querySelectorAll('.nav-links a:not(.active)').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showToast('Feature coming soon!');
+    const API = 'http://127.0.0.1:8000';
+    let tasksById = {};  // the tasks on the board, so buttons can look up their task
+
+    // Makes any text safe to put inside HTML (so AI text can't turn into tags)
+    function escapeHtml(text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Saves changes to a task (only the fields you pass), then refreshes the board
+    async function updateTask(taskId, changes) {
+        const response = await fetch(`${API}/api/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(changes)
         });
+        if (!response.ok) throw new Error('Could not save the change.');
+        await loadExistingTasks();
+    }
+
+    // Calendar download: the file itself comes from the backend
+    document.getElementById('calendar-link').addEventListener('click', () => {
+        showToast('Downloaded! Open the file to add your deadlines to Google Calendar or your phone.');
+    });
+
+    // Bell: what's due in the next 3 days
+    const bellBtn = document.getElementById('bell-btn');
+    const bellCount = document.getElementById('bell-count');
+    const bellDropdown = document.getElementById('bell-dropdown');
+
+    // Counts calendar days, so something due tomorrow night says "due tomorrow"
+    function daysLeftText(deadline) {
+        const due = new Date(deadline);
+        const now = new Date();
+        if (due < now) return 'overdue';
+        const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const days = Math.round((midnight(due) - midnight(now)) / 86400000);
+        if (days === 0) return 'due today';
+        return days === 1 ? 'due tomorrow' : `${days} days left`;
+    }
+
+    function updateBell(tasks) {
+        const now = new Date();
+        const soon = new Date(now.getTime() + 3 * 86400000);
+        const dueSoon = tasks.filter(t => !t.is_done && t.deadline
+            && new Date(t.deadline) >= now && new Date(t.deadline) <= soon);
+
+        bellCount.hidden = dueSoon.length === 0;
+        bellCount.textContent = dueSoon.length;
+        bellDropdown.innerHTML = '<h4>Due in the next 3 days</h4>' + (dueSoon.length
+            ? dueSoon.map(t => `
+                <div class="bell-item">
+                    <strong>${escapeHtml(t.title)}</strong>
+                    <span>${escapeHtml(t.course_name)} · ${daysLeftText(t.deadline)}</span>
+                </div>`).join('')
+            : '<p>Nothing due soon. 🎉</p>');
+    }
+
+    bellBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bellDropdown.hidden = !bellDropdown.hidden;
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.bell-wrapper')) bellDropdown.hidden = true;
     });
 
     // View Toggles
@@ -80,8 +141,64 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
     fileInput.addEventListener('change', function() { handleFiles(this.files); });
 
-    // Task Card Actions (Chat & Delete)
+    // Task Card Actions (tick steps, done, edit, chat, delete)
     cardsContainer.addEventListener('click', async (e) => {
+        const card = e.target.closest('.extraction-col');
+        const task = card && tasksById[card.dataset.id];
+
+        // Tick or untick a step
+        const step = e.target.closest('.step-item');
+        if (step && task) {
+            const index = Number(step.dataset.step);
+            const ticked = new Set(task.completed_milestones);
+            ticked.has(index) ? ticked.delete(index) : ticked.add(index);
+            step.classList.toggle('completed');  // show it straight away, then save
+            try {
+                await updateTask(task.id, { completed_milestones: [...ticked] });
+            } catch (error) {
+                showToast(error.message);
+                await loadExistingTasks();
+            }
+            return;
+        }
+
+        // Mark as done / not done
+        if (e.target.closest('.done-btn') && task) {
+            try {
+                await updateTask(task.id, { is_done: !task.is_done });
+                showToast(task.is_done ? 'Moved back to your to-do list.' : 'Nice work! Task done. 🎉');
+            } catch (error) {
+                showToast(error.message);
+            }
+            return;
+        }
+
+        // Open / close the edit form
+        if ((e.target.closest('.edit-btn') || e.target.closest('.edit-cancel')) && task) {
+            const form = card.querySelector('.edit-form');
+            form.hidden = !form.hidden;
+            return;
+        }
+
+        // Save the edit form
+        if (e.target.closest('.edit-save') && task) {
+            const form = card.querySelector('.edit-form');
+            const value = (name) => form.querySelector(`[name="${name}"]`).value.trim();
+            const changes = {};
+            if (value('title')) changes.title = value('title');
+            if (value('course_name')) changes.course_name = value('course_name');
+            if (value('deadline')) changes.deadline = value('deadline') + ':00';
+            if (value('estimated_hours')) changes.estimated_hours = parseInt(value('estimated_hours'));
+            changes.details = value('details');
+            try {
+                await updateTask(task.id, changes);
+                showToast('Task updated!');
+            } catch (error) {
+                showToast(error.message);
+            }
+            return;
+        }
+
         // Delete Task
         const deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) {
@@ -91,11 +208,15 @@ document.addEventListener('DOMContentLoaded', () => {
             col.style.opacity = '0.4';
             col.style.pointerEvents = 'none';
             try {
-                const response = await fetch(`http://127.0.0.1:8000/api/tasks/${taskId}`, { method: 'DELETE' });
+                if (!confirm('Delete this task?')) {
+                    col.style.opacity = '1';
+                    col.style.pointerEvents = 'auto';
+                    return;
+                }
+                const response = await fetch(`${API}/api/tasks/${taskId}`, { method: 'DELETE' });
                 if (response.ok) {
-                    col.remove();
                     showToast('Task successfully deleted!');
-                    if (cardsContainer.querySelectorAll('.extraction-col').length === 0) renderCards([]);
+                    await loadExistingTasks();
                 } else {
                     throw new Error("Failed to delete from database");
                 }
@@ -162,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const typingMsg = appendChatMessage('<i class="fa-solid fa-spinner fa-spin"></i> Analyzing document...', false, true);
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/chat', {
+            const response = await fetch(`${API}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -219,20 +340,51 @@ document.addEventListener('DOMContentLoaded', () => {
         agentMessages.appendChild(badge);
     }
 
-    // The agent never saves by itself: it prepares a task, and YOU click Save or Cancel
-    function appendPendingTaskCard(task) {
-        const card = document.createElement('div');
-        card.className = 'pending-task-card';
-        const deadline = new Date(task.deadline).toLocaleString('en-MY', {
+    function formatDeadline(deadline) {
+        return new Date(deadline).toLocaleString('en-MY', {
             weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
         });
-        // textContent (not innerHTML) so whatever the AI wrote can't turn into HTML
+    }
+
+    // The agent never saves by itself: it prepares a task, and YOU click Save or Cancel
+    function appendPendingTaskCard(task) {
         const lines = [
             ['strong', task.title],
             ['span', task.course_name],
-            ['span', `Due ${deadline}`],
+            ['span', `Due ${formatDeadline(task.deadline)}`],
         ];
         if (task.estimated_hours) lines.push(['span', `About ${task.estimated_hours} hours`]);
+        appendConfirmCard(lines, 'Saved to your task board.', async () => {
+            const response = await fetch(`${API}/api/agent/save-task`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(task)
+            });
+            if (!response.ok) throw new Error('Could not save the task.');
+            showToast('Task added!');
+        });
+    }
+
+    // Same idea for changing a task that's already on the board
+    function appendPendingEditCard(edit) {
+        const labels = { title: 'Title', course_name: 'Course', estimated_hours: 'Hours', details: 'Notes' };
+        const lines = [['strong', `Change: ${edit.task_title}`]];
+        Object.entries(edit.changes).forEach(([field, value]) => {
+            if (field === 'deadline') lines.push(['span', `New deadline: ${formatDeadline(value)}`]);
+            else if (field === 'is_done') lines.push(['span', value ? 'Mark as done ✅' : 'Mark as not done']);
+            else lines.push(['span', `${labels[field] || field}: ${value}`]);
+        });
+        appendConfirmCard(lines, 'Task updated.', async () => {
+            await updateTask(edit.task_id, edit.changes);
+            showToast('Task updated!');
+        });
+    }
+
+    // A small card in the chat with Save / Cancel. onSave does the real saving.
+    function appendConfirmCard(lines, savedText, onSave) {
+        const card = document.createElement('div');
+        card.className = 'pending-task-card';
+        // textContent (not innerHTML) so whatever the AI wrote can't turn into HTML
         lines.forEach(([tag, text]) => {
             const el = document.createElement(tag);
             el.textContent = text;
@@ -255,14 +407,8 @@ document.addEventListener('DOMContentLoaded', () => {
         buttons.querySelector('.save-task-btn').addEventListener('click', async () => {
             buttons.textContent = 'Saving...';
             try {
-                const response = await fetch('http://127.0.0.1:8000/api/agent/save-task', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(task)
-                });
-                if (!response.ok) throw new Error('Could not save the task.');
-                buttons.textContent = '✅ Saved to your task board.';
-                showToast('Task added!');
+                await onSave();
+                buttons.textContent = `✅ ${savedText}`;
                 await loadExistingTasks();
             } catch (error) {
                 console.error(error);
@@ -280,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const thinking = appendAgentMessage('<i class="fa-solid fa-spinner fa-spin"></i> Thinking...');
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/agent', {
+            const response = await fetch(`${API}/api/agent`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: text })
@@ -292,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data.tools_used.forEach(appendToolBadge);
             appendAgentMessage(formatChatText(data.answer));
             if (data.pending_task) appendPendingTaskCard(data.pending_task);
+            if (data.pending_edit) appendPendingEditCard(data.pending_edit);
         } catch (error) {
             console.error(error);
             thinking.remove();
@@ -307,13 +454,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch API Functions
     async function loadExistingTasks() {
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/tasks');
+            const response = await fetch(`${API}/api/tasks`);
             if (response.ok) {
                 const data = await response.json();
-                renderCards(data, null);
+                tasksById = Object.fromEntries(data.map(t => [t.id, t]));
+                renderCards(data);
+                updateBell(data);
             }
         } catch(error) {
             console.error("Could not load existing tasks", error);
+            cardsContainer.innerHTML = `
+                <div class="waiting-card" style="grid-column: 1 / -1;">
+                    <i class="fa-solid fa-plug-circle-xmark waiting-icon"></i>
+                    <h3>Can't reach the backend</h3>
+                    <p>Start it with: python -m uvicorn main:app --reload</p>
+                </div>`;
         }
     }
 
@@ -338,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('file', file);
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/parse-assignment', {
+            const response = await fetch(`${API}/api/parse-assignment`, {
                 method: 'POST',
                 body: formData
             });
@@ -388,100 +543,135 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderCards(parsedDocuments, filename) {
-        cardsContainer.innerHTML = ''; 
-        if (badge) badge.textContent = `${parsedDocuments ? parsedDocuments.length : 0} found`;
+    function renderCards(tasks) {
+        if (badge) badge.textContent = `${tasks.length} found`;
 
-        if (!parsedDocuments || parsedDocuments.length === 0) {
+        if (tasks.length === 0) {
             cardsContainer.innerHTML = `
-                <div class="extraction-col" style="grid-column: 1 / -1;">
-                    <div class="task-card" style="text-align: center; padding: 3rem;">
-                        <i class="fa-solid fa-ghost" style="font-size: 2rem; opacity: 0.5; margin-bottom: 1rem;"></i>
-                        <p class="card-desc">No tasks or recognizable information saved in the database yet.</p>
-                    </div>
-                </div>
-            `;
+                <div class="waiting-card" style="grid-column: 1 / -1;">
+                    <i class="fa-solid fa-wand-magic-sparkles waiting-icon"></i>
+                    <h3>No tasks yet</h3>
+                    <p>Upload an assignment PDF, or tell Ask Copilot: "Add my lab report for BACS2093, due next Friday".</p>
+                </div>`;
             return;
         }
 
-        parsedDocuments.forEach((item, index) => {
-            let deadlineHtml = '';
-            if (item.deadline) {
-                const d = new Date(item.deadline);
-                const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                deadlineHtml = `
-                    <div class="deadline-box">
-                        <i class="fa-regular fa-calendar"></i>
-                        <div class="deadline-text">
-                            <span class="deadline-label">DEADLINE DATE</span>
-                            <span class="deadline-value">${dateStr} at ${timeStr}</span>
-                        </div>
+        cardsContainer.innerHTML = tasks.map(renderCard).join('');
+    }
+
+    function renderCard(item) {
+        const isAssignment = item.document_type === 'Assignment';
+        const steps = item.milestones || [];
+        const ticked = new Set(item.completed_milestones || []);
+        const overdue = item.deadline && daysLeftText(item.deadline) === 'overdue';
+
+        // Status shown at the top of the card
+        let status = '<span class="dot blue"></span> TO DO';
+        if (item.is_done) status = '<span class="dot done-dot"></span> DONE';
+        else if (!isAssignment) status = '<span class="dot gray"></span> LECTURE NOTE';
+        else if (overdue) status = '<span class="dot red-dot"></span> OVERDUE';
+
+        let deadlineHtml = '';
+        if (item.deadline) {
+            const d = new Date(item.deadline);
+            const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const left = item.is_done ? '' : ` <span class="${overdue ? 'red-text' : 'cyan-text'}">(${daysLeftText(item.deadline)})</span>`;
+            deadlineHtml = `
+                <div class="deadline-box">
+                    <i class="fa-regular fa-calendar"></i>
+                    <div class="deadline-text">
+                        <span class="deadline-label">DEADLINE</span>
+                        <span class="deadline-value">${dateStr} at ${timeStr}${left}</span>
                     </div>
-                `;
-            }
+                </div>`;
+        }
 
-            let stepsHtml = '';
-            if (item.milestones && item.milestones.length > 0) {
-                const steps = item.milestones.map((step, i) => `
-                    <li class="${i===0 ? 'completed' : ''}">
-                        <i class="fa-${i===0 ? 'solid fa-circle-check' : 'regular fa-circle'}"></i> ${step}
-                    </li>
-                `).join('');
-                stepsHtml = `<div class="extracted-steps"><h4>AUTOMATICALLY EXTRACTED STEPS</h4><ul>${steps}</ul></div>`;
-            }
+        // Steps you can tick, with a progress bar
+        let stepsHtml = '';
+        if (isAssignment && steps.length > 0) {
+            const percent = Math.round(ticked.size / steps.length * 100);
+            const stepItems = steps.map((step, i) => `
+                <li class="step-item ${ticked.has(i) ? 'completed' : ''}" data-step="${i}" title="Click to tick">
+                    <i class="fa-${ticked.has(i) ? 'solid fa-circle-check' : 'regular fa-circle'}"></i> ${escapeHtml(step)}
+                </li>`).join('');
+            stepsHtml = `
+                <div class="extracted-steps">
+                    <h4>STEPS · ${ticked.size} OF ${steps.length} DONE</h4>
+                    <div class="progress-bar"><div class="progress-fill" style="width: ${percent}%"></div></div>
+                    <ul>${stepItems}</ul>
+                </div>`;
+        }
 
-            let conceptsHtml = '';
-            if (item.key_concepts && item.key_concepts.length > 0) {
-                const concepts = item.key_concepts.map(c => `<span class="tag gray" style="margin-bottom: 0.5rem; display: inline-block;">${c}</span>`).join(' ');
-                conceptsHtml = `<div class="extracted-steps"><h4>KEY CONCEPTS TO REVIEW</h4><div>${concepts}</div></div>`;
-            }
+        let conceptsHtml = '';
+        if (!isAssignment && item.key_concepts && item.key_concepts.length > 0) {
+            const concepts = item.key_concepts.map(c => `<span class="tag gray" style="margin-bottom: 0.5rem; display: inline-block;">${escapeHtml(c)}</span>`).join(' ');
+            conceptsHtml = `<div class="extracted-steps"><h4>KEY CONCEPTS TO REVIEW</h4><div>${concepts}</div></div>`;
+        }
 
-            let urgencyHtml = '';
-            if (item.urgency_score) {
-                if (item.urgency_score > 7) {
-                     urgencyHtml = `<span class="tag red"><span class="dot red-dot"></span> URGENCY: ${item.urgency_score}/10</span>`;
-                } else if (item.urgency_score > 4) {
-                     urgencyHtml = `<span class="tag gray" style="color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.1);"><span class="dot" style="background-color: #fbbf24; display: inline-block; margin-right: 4px;"></span> URGENCY: ${item.urgency_score}/10</span>`;
-                } else {
-                     urgencyHtml = `<span class="tag gray"><span class="dot blue"></span> URGENCY: ${item.urgency_score}/10</span>`;
-                }
+        let urgencyHtml = '';
+        if (item.urgency_score && isAssignment && !item.is_done) {
+            if (item.urgency_score > 7) {
+                urgencyHtml = `<span class="tag red"><span class="dot red-dot"></span> URGENCY: ${item.urgency_score}/10</span>`;
+            } else if (item.urgency_score > 4) {
+                urgencyHtml = `<span class="tag gray" style="color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.1);"><span class="dot" style="background-color: #fbbf24; display: inline-block; margin-right: 4px;"></span> URGENCY: ${item.urgency_score}/10</span>`;
+            } else {
+                urgencyHtml = `<span class="tag gray"><span class="dot blue"></span> URGENCY: ${item.urgency_score}/10</span>`;
             }
+        }
 
-            const cardActions = `
-                <div class="card-actions">
-                    ${item.id ? `<button class="chat-btn" data-id="${item.id}" title="Chat with Document"><i class="fa-regular fa-comment-dots"></i> Chat</button>` : ''}
-                    ${item.id ? `<button class="delete-btn" data-id="${item.id}" title="Delete Task"><i class="fa-regular fa-trash-can"></i></button>` : ''}
+        // Chat only works when we have the PDF's text (tasks added by chatting don't have one)
+        const chatButton = item.raw_text
+            ? `<button class="chat-btn" data-id="${item.id}" title="Ask questions about this PDF"><i class="fa-regular fa-comment-dots"></i> Chat</button>`
+            : '';
+        const cardActions = `
+            <div class="card-actions">
+                ${chatButton}
+                <button class="edit-btn" title="Edit task"><i class="fa-regular fa-pen-to-square"></i></button>
+                <button class="delete-btn" data-id="${item.id}" title="Delete task"><i class="fa-regular fa-trash-can"></i></button>
+            </div>`;
+
+        const editForm = `
+            <div class="edit-form" hidden>
+                <label>Title <input name="title" value="${escapeHtml(item.title)}"></label>
+                <label>Course <input name="course_name" value="${escapeHtml(item.course_name)}"></label>
+                <label>Deadline <input name="deadline" type="datetime-local" value="${item.deadline ? item.deadline.slice(0, 16) : ''}"></label>
+                <label>Hours <input name="estimated_hours" type="number" min="0" value="${item.estimated_hours ?? ''}"></label>
+                <label>Notes <textarea name="details" rows="3">${escapeHtml(item.details)}</textarea></label>
+                <div class="edit-form-buttons">
+                    <button class="edit-save"><i class="fa-solid fa-check"></i> Save</button>
+                    <button class="edit-cancel">Cancel</button>
                 </div>
-            `;
+            </div>`;
 
-            const cardHtml = `
-                <div class="extraction-col">
-                    <div class="col-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span><span class="dot blue"></span> SAVED TASK</span>
-                        ${cardActions}
-                    </div>
-                    <div class="task-card">
-                        <div class="card-tags">
-                            <span class="tag gray">${(item.task_type || item.document_type || 'DOCUMENT').toUpperCase()}</span>
-                            ${urgencyHtml}
-                        </div>
-                        
-                        <h3 class="card-title">${item.title || item.course_name || 'Untitled Analysis'}</h3>
-                        <p class="card-desc">${item.details || 'No details provided.'}</p>
-                        
-                        ${deadlineHtml}
-                        
-                        ${item.document_type === 'Assignment' ? stepsHtml : conceptsHtml}
+        const doneButton = !isAssignment ? '' : `
+            <div class="card-footer">
+                <button class="done-btn ${item.is_done ? 'is-done' : ''}">
+                    <i class="fa-${item.is_done ? 'solid fa-rotate-left' : 'regular fa-square-check'}"></i>
+                    ${item.is_done ? 'Not done yet' : 'Mark as done'}
+                </button>
+            </div>`;
 
-                        <div class="card-footer">
-                            <div class="source-file"><i class="fa-solid fa-database"></i> Database Record</div>
-                            <a href="#" class="launch-link">Launch Copilot Workspace <i class="fa-solid fa-chevron-right"></i></a>
-                        </div>
-                    </div>
+        return `
+            <div class="extraction-col ${item.is_done ? 'is-done' : ''}" data-id="${item.id}">
+                <div class="col-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>${status}</span>
+                    ${cardActions}
                 </div>
-            `;
-            cardsContainer.innerHTML += cardHtml;
-        });
+                <div class="task-card">
+                    <div class="card-tags">
+                        <span class="tag gray">${escapeHtml((item.task_type || item.document_type || 'DOCUMENT').toUpperCase())}</span>
+                        ${urgencyHtml}
+                    </div>
+                    <h3 class="card-title">${escapeHtml(item.title || 'Untitled')}</h3>
+                    <p class="card-course">${escapeHtml(item.course_name)}</p>
+                    <p class="card-desc">${escapeHtml(item.details || 'No details provided.')}</p>
+                    ${editForm}
+                    ${deadlineHtml}
+                    ${stepsHtml}
+                    ${conceptsHtml}
+                    ${doneButton}
+                </div>
+            </div>`;
     }
 });
