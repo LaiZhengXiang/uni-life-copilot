@@ -117,3 +117,8 @@ async def ask_agent(req: agent.AgentRequest):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Please type a question.")
     return agent.run_agent(req.message)
+
+@app.post("/api/agent/save-task", response_model=ai_service.ParsedDocument)
+async def save_agent_task(task: agent.PendingTask):
+    """The student clicked Save on a task the agent prepared, so now we really save it."""
+    return agent.save_task(task)

@@ -797,3 +797,48 @@ body {
     padding: 0.25rem 0.7rem;
     font-family: ui-monospace, Consolas, monospace;
 }
+
+/* Task the agent prepared, waiting for the student to click Save */
+.pending-task-card {
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    max-width: 85%;
+    padding: 0.75rem 1rem;
+    border: 1px dashed rgba(6, 182, 212, 0.5);
+    border-radius: 12px;
+    background: rgba(6, 182, 212, 0.06);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.pending-task-card strong {
+    color: var(--text-main);
+    font-size: 0.95rem;
+}
+
+.pending-task-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    color: var(--text-main);
+}
+
+.pending-task-buttons button {
+    border: none;
+    border-radius: 8px;
+    padding: 0.35rem 0.9rem;
+    font: inherit;
+    cursor: pointer;
+}
+
+.save-task-btn {
+    background: var(--accent-cyan);
+    color: #fff;
+}
+
+.cancel-task-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+}

@@ -1,9 +1,13 @@
 """
-Week 1 of the study-secretary agent: TOOL CALLING.
+The study-secretary agent.
 
-The AI never touches the database itself. We show it a "menu" of tools,
+Week 1, TOOL CALLING: the AI never touches the database itself. We show it a "menu" of tools,
 it replies "please run get_deadlines(days_ahead=7)", OUR code runs it,
 and we send the result back so the AI can answer in normal words.
+
+Week 2, THE AGENT LOOP: the AI may ask for tools again and again (check deadlines, then add a task...)
+until it has everything it needs. We stop it after MAX_ROUNDS so it can never loop forever.
+add_task does NOT save by itself: it only prepares the task, and the student clicks Save to confirm.
 """
 import json
 import os
@@ -27,9 +31,22 @@ class ToolUse(BaseModel):
     args: dict
 
 
+class PendingTask(BaseModel):
+    """A task the agent wants to add. Only saved after the student clicks Save."""
+    title: str
+    course_name: str
+    deadline: datetime
+    estimated_hours: Optional[int] = None
+    details: str = ""
+
+
 class AgentResponse(BaseModel):
     answer: str
     tools_used: List[ToolUse]  # shown in the UI so you can see the agent "doing" things
+    pending_task: Optional[PendingTask] = None  # the UI shows a Save / Cancel card for it
+
+
+MAX_ROUNDS = 5  # the most times the AI may ask for tools in one question
 
 
 # ---------- 1. The tools: normal Python functions ----------
@@ -66,9 +83,55 @@ def get_deadlines(days_ahead: int = 7) -> List[dict]:
         db.close()
 
 
+def add_task(title: str, course_name: str, deadline: str,
+             estimated_hours: Optional[int] = None, details: str = "") -> dict:
+    """Prepares a new task. It is NOT saved yet: the student must click Save first."""
+    try:
+        when = datetime.strptime(deadline.strip(), "%Y-%m-%d %H:%M")
+    except ValueError:
+        return {"error": "deadline must look like 2026-11-05 23:59"}
+    if when < datetime.now():
+        return {"error": "That deadline is in the past. Ask the student for the right date."}
+    task = PendingTask(title=title, course_name=course_name, deadline=when,
+                       estimated_hours=estimated_hours, details=details)
+    # The weekday helps the AI notice if it picked the wrong date
+    return {"status": "waiting_for_student_to_click_save", "deadline_is_a": when.strftime("%A"),
+            "task": task.model_dump(mode="json")}
+
+
+def _urgency_score(deadline: datetime) -> int:
+    """10 = due today, going down by 1 every 2 days, never below 1."""
+    days_left = (deadline - datetime.now()).days
+    return max(1, min(10, 10 - days_left // 2))
+
+
+def save_task(task: PendingTask) -> models.TaskRecord:
+    """Runs when the student clicks Save: this is the only place a chat-added task gets saved."""
+    db = SessionLocal()
+    try:
+        record = models.TaskRecord(
+            document_type="Assignment",
+            course_name=task.course_name,
+            title=task.title,
+            deadline=task.deadline,
+            details=task.details or "Added by chatting with Copilot.",
+            estimated_hours=task.estimated_hours,
+            key_concepts=[],
+            milestones=[],
+            urgency_score=_urgency_score(task.deadline),
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return record
+    finally:
+        db.close()
+
+
 # Which Python function runs for each tool name the AI may ask for
 TOOL_FUNCTIONS = {
     "get_deadlines": get_deadlines,
+    "add_task": add_task,
 }
 
 
@@ -97,17 +160,52 @@ TOOLS_MENU = [
                 "required": ["days_ahead"],
             },
         },
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_task",
+            "description": (
+                "Add a new assignment or task to the student's task board. "
+                "It is not saved straight away: the student sees a Save button and must click it. "
+                "Only use this when the student gave the title, the course and the due date. "
+                "If any of these is missing, ask the student instead of guessing."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Short task name, e.g. 'Linked List Assignment'."},
+                    "course_name": {"type": "string", "description": "Course code or name, e.g. 'BACS2063 Data Structures'."},
+                    "deadline": {
+                        "type": "string",
+                        "description": "Due date and time as 'YYYY-MM-DD HH:MM' (24-hour). Use 23:59 if no time was given.",
+                    },
+                    "estimated_hours": {"type": "integer", "description": "Hours of work, only if the student said."},
+                    "details": {"type": "string", "description": "Any extra notes the student gave."},
+                },
+                "required": ["title", "course_name", "deadline"],
+            },
+        },
+    },
 ]
 
 
 def _system_prompt() -> str:
-    # The AI doesn't know today's date, so we tell it every time
-    today = datetime.now().strftime("%A %d %B %Y, %I:%M %p")
+    # The AI doesn't know today's date, so we tell it every time.
+    # AIs are bad at date maths, so we also list the next two weeks for it.
+    now = datetime.now()
+    today = now.strftime("%A %d %B %Y, %I:%M %p")
+    upcoming = "\n".join((now + timedelta(days=i)).strftime("- %A = %Y-%m-%d") for i in range(1, 15))
     return (
         "You are UniLife Copilot, a friendly study secretary for a university student. "
-        f"Today is {today}. "
+        f"Today is {today}.\n"
+        f"Calendar for the next 14 days (copy dates from here, never calculate them yourself):\n{upcoming}\n"
+        "'This Friday' or 'next Friday' means the FIRST Friday in this list.\n"
         "Use your tools to look up the student's real data; never make up deadlines. "
+        "You may use several tools one after another, for example check the deadlines before adding a task "
+        "so you don't add the same task twice. "
+        "add_task does not save anything: after it works, say the task is READY (not saved) "
+        "and tell the student to press Save to confirm. "
         "Answer briefly in simple English."
     )
 
@@ -171,24 +269,30 @@ def run_agent(user_message: str) -> AgentResponse:
         {"role": "system", "content": _system_prompt()},
         {"role": "user", "content": user_message},
     ]
-
-    # Step A: ask the AI. It either answers directly, or asks us to run tools.
-    reply = _ask_groq_with_tools(messages, tool_choice="auto")
-    tool_calls = reply.get("tool_calls") or []
-    if not tool_calls:
-        print("[Agent] AI answered without tools")
-        return AgentResponse(answer=reply.get("content") or "", tools_used=[])
-
-    # Step B: run each tool the AI asked for, and add the results to the conversation
-    messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": tool_calls})
     tools_used = []
-    for call in tool_calls:
-        name = call["function"]["name"]
-        args, result = _run_tool(name, call["function"].get("arguments"))
-        print(f"[Agent] AI asked for {name}({args}) -> {result if isinstance(result, dict) else f'{len(result)} task(s)'}")
-        tools_used.append(ToolUse(name=name, args=args))
-        messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(result)})
+    pending_task = None
 
-    # Step C: ask again, now with the tool results, for the final answer in normal words
-    final = _ask_groq_with_tools(messages, tool_choice="none")
-    return AgentResponse(answer=final.get("content") or "", tools_used=tools_used)
+    # THE AGENT LOOP: ask -> run the tools it wants -> ask again ... until it answers in words
+    for round_number in range(1, MAX_ROUNDS + 1):
+        # On the last round we take the tools away, so it must answer now
+        last_round = round_number == MAX_ROUNDS
+        reply = _ask_groq_with_tools(messages, tool_choice="none" if last_round else "auto")
+        tool_calls = reply.get("tool_calls") or []
+
+        if not tool_calls:
+            print(f"[Agent] Final answer after {round_number} round(s)")
+            return AgentResponse(answer=reply.get("content") or "", tools_used=tools_used, pending_task=pending_task)
+
+        # Run each tool the AI asked for, and add the results to the conversation
+        messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": tool_calls})
+        for call in tool_calls:
+            name = call["function"]["name"]
+            args, result = _run_tool(name, call["function"].get("arguments"))
+            print(f"[Agent] Round {round_number}: {name}({args}) -> {result if isinstance(result, dict) else f'{len(result)} task(s)'}")
+            tools_used.append(ToolUse(name=name, args=args))
+            if name == "add_task" and isinstance(result, dict) and "task" in result:
+                pending_task = PendingTask(**result["task"])  # the UI will show Save / Cancel
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(result)})
+
+    # Not reached (the last round has no tools), but just in case
+    return AgentResponse(answer="Sorry, I got stuck. Please ask again.", tools_used=tools_used, pending_task=pending_task)

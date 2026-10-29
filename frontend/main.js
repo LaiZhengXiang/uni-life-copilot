@@ -219,6 +219,58 @@ document.addEventListener('DOMContentLoaded', () => {
         agentMessages.appendChild(badge);
     }
 
+    // The agent never saves by itself: it prepares a task, and YOU click Save or Cancel
+    function appendPendingTaskCard(task) {
+        const card = document.createElement('div');
+        card.className = 'pending-task-card';
+        const deadline = new Date(task.deadline).toLocaleString('en-MY', {
+            weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
+        });
+        // textContent (not innerHTML) so whatever the AI wrote can't turn into HTML
+        const lines = [
+            ['strong', task.title],
+            ['span', task.course_name],
+            ['span', `Due ${deadline}`],
+        ];
+        if (task.estimated_hours) lines.push(['span', `About ${task.estimated_hours} hours`]);
+        lines.forEach(([tag, text]) => {
+            const el = document.createElement(tag);
+            el.textContent = text;
+            card.appendChild(el);
+        });
+
+        const buttons = document.createElement('div');
+        buttons.className = 'pending-task-buttons';
+        buttons.innerHTML = `
+            <button class="save-task-btn"><i class="fa-solid fa-check"></i> Save</button>
+            <button class="cancel-task-btn">Cancel</button>
+        `;
+        card.appendChild(buttons);
+        agentMessages.appendChild(card);
+        agentMessages.scrollTop = agentMessages.scrollHeight;
+
+        buttons.querySelector('.cancel-task-btn').addEventListener('click', () => {
+            buttons.textContent = 'Cancelled. Nothing was saved.';
+        });
+        buttons.querySelector('.save-task-btn').addEventListener('click', async () => {
+            buttons.textContent = 'Saving...';
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/agent/save-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(task)
+                });
+                if (!response.ok) throw new Error('Could not save the task.');
+                buttons.textContent = '✅ Saved to your task board.';
+                showToast('Task added!');
+                await loadExistingTasks();
+            } catch (error) {
+                console.error(error);
+                buttons.textContent = `⚠️ ${error.message}`;
+            }
+        });
+    }
+
     async function askAgent() {
         const text = agentInput.value.trim();
         if (!text) return;
@@ -239,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             data.tools_used.forEach(appendToolBadge);
             appendAgentMessage(formatChatText(data.answer));
+            if (data.pending_task) appendPendingTaskCard(data.pending_task);
         } catch (error) {
             console.error(error);
             thinking.remove();
