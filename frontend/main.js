@@ -162,13 +162,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---------- Picture mascot ----------
     // If assets/mascot/mascot.json exists (made by tools/remove_bg.py), your own pictures replace the drawn cat.
-    // It lists three groups: idle (just chilling), pressed (when you press it) and answer (while it answers you).
+    // It lists the groups: main (the normal pose, also the logo and chat picture), idle (little moves it does
+    // now and then), pressed (when you press it) and answer (while it answers you).
     const MASCOT_GROUP = { thinking: 'answer', explain: 'answer', happy: 'pressed' };  // other moods use idle
     let mascotGroups = null;
     let mascotGroup = '';
     let mascotShape = 1;      // width / height of the box the pictures sit in
     let mascotHeld = false;   // true while you hold the mouse or finger on it
     let idleSwapTimer = null;
+    const IDLE_MOVE_SECONDS = 3;   // how long an idle move shows before it goes back to the main pose
 
     function randomFrom(list, not) {
         const choices = list.length > 1 ? list.filter(name => name !== not) : list;
@@ -181,21 +183,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const src = document.querySelector('.mascot-img').getAttribute('src') || '';
         return src.split('/').pop();
     }
-    // Shows a random picture from the mood's group (only when the group changes, or when forced)
+    // Shows a random picture from the mood's group (only when the group changes, or when forced).
+    // Resting moods show the main pose.
     function showMascotPicture(state, force) {
         if (!mascotGroups) return;
-        let group = MASCOT_GROUP[state] || 'idle';
-        if (!mascotGroups[group]?.length) group = 'idle';
+        let group = MASCOT_GROUP[state] || 'main';
+        if (!mascotGroups[group]?.length) group = 'main';
         if (group === mascotGroup && !force) return;
         mascotGroup = group;
         setMascotPicture(randomFrom(mascotGroups[group], currentMascotPicture()));
     }
-    // While nobody touches it, it changes to another idle picture every 6 to 14 seconds
+    // While nobody touches it, every 6 to 14 seconds it does a random idle move for 3 seconds,
+    // then goes back to the main pose
     function queueIdleSwap() {
         clearTimeout(idleSwapTimer);
         idleSwapTimer = setTimeout(() => {
-            if (!mascotHeld && mascotGroup === 'idle') showMascotPicture('idle', true);
-            queueIdleSwap();
+            if (!mascotHeld && mascotGroup === 'main' && mascotGroups.idle?.length) {
+                mascotGroup = 'idle';
+                setMascotPicture(randomFrom(mascotGroups.idle));
+                idleSwapTimer = setTimeout(() => {
+                    if (mascotGroup === 'idle') showMascotPicture('idle');
+                    queueIdleSwap();
+                }, IDLE_MOVE_SECONDS * 1000);
+            } else {
+                queueIdleSwap();
+            }
         }, 6000 + Math.random() * 8000);
     }
 
@@ -230,7 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch('assets/mascot/mascot.json', { cache: 'no-cache' })
         .then(response => response.ok ? response.json() : null)
         .then(groups => {
-            if (!groups?.idle?.length) return;
+            // the main pose; older lists without one use the first idle picture
+            if (!groups?.main?.length) groups = { ...groups, main: groups?.idle?.slice(0, 1) || [] };
+            if (!groups.main.length) return;
             const first = new Image();
             first.onload = () => {
                 mascotGroups = groups;
@@ -245,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('brand-ollie').innerHTML = `<img class="brand-mascot" src="${first.src}" alt="">`;
                 if (!roomObjects.hidden) placeRoomObjects();
             };
-            first.src = `assets/mascot/${groups.idle[0]}`;
+            first.src = `assets/mascot/${groups.main[0]}`;
         })
         .catch(() => {});  // no pictures: keep the drawn cat
 
