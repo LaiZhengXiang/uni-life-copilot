@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=29">
-    <link rel="stylesheet" href="ollie.css?v=31">
+    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="stylesheet" href="ollie.css?v=32">
 </head>
 <!-- data-time (morning / afternoon / evening / night) is set by main.js from your clock -->
 <body data-time="afternoon">
@@ -39,7 +39,7 @@
         <div class="room-shade"></div>
     </div>
 
-    <!-- Room mode: the panels fade away and you can click things in the room.
+    <!-- Things you can click in the room.
          main.js places each spot on top of the matching object in the picture
          (data-box = left, top, right, bottom, as fractions of the picture). -->
     <div class="room-objects" id="room-objects" hidden>
@@ -48,22 +48,18 @@
         <button class="room-hotspot" data-object="lamp" data-box="0.366,0.398,0.500,0.705" data-label="Lamp: light switch" aria-label="Lamp: light switch"></button>
         <button class="room-hotspot" data-object="drawer" data-box="0.326,0.770,0.466,0.995" data-label="Drawer: your notes" aria-label="Drawer: your notes"></button>
 
-        <!-- Ollie sitting on the desk (a copy of the Ollie in the corner, made by main.js) -->
+        <!-- Ollie sitting on the desk (a copy of the drawing, made by main.js). Click it to talk. -->
         <div class="room-ollie-spot" id="room-ollie-spot">
-            <div class="room-speech" id="room-speech" aria-live="polite"></div>
-            <button class="room-ollie-btn" id="room-ollie-btn" aria-label="Pet Ollie">
+            <div class="speech room-speech" id="ollie-speech" aria-live="polite">
+                <p class="speech-question" id="speech-question" hidden></p>
+                <div class="speech-text" id="ollie-says">Hi! Let me check your day...</div>
+                <div class="speech-extras" id="speech-extras"></div>
+            </div>
+            <button class="room-ollie-btn" id="room-ollie-btn" aria-label="Talk to Ollie" aria-controls="ollie-corner" aria-expanded="false">
                 <span class="ollie" id="room-ollie" data-state="idle"></span>
             </button>
         </div>
 
-        <!-- The same objects as plain buttons: for keyboards, screen readers and small screens -->
-        <nav class="room-toolbar" aria-label="Things in the room">
-            <button class="room-tool" data-object="clock"><i class="fa-regular fa-clock" aria-hidden="true"></i> <span class="tool-label">Clock</span></button>
-            <button class="room-tool" data-object="calendar"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <span class="tool-label">Calendar</span></button>
-            <button class="room-tool" data-object="lamp"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> <span class="tool-label">Lamp</span></button>
-            <button class="room-tool" data-object="drawer"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> <span class="tool-label">Drawer</span></button>
-            <button class="btn btn-primary" id="back-to-work"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <span class="tool-label">Back to work</span></button>
-        </nav>
     </div>
 
     <!-- Everything sits in one box inside the room, so the room frames it -->
@@ -77,10 +73,10 @@
             <div class="topbar-actions">
                 <span class="room-clock" id="room-clock" aria-label="Current time"></span>
 
-                <!-- Room mode: hide the panels and look around the room -->
-                <button class="icon-btn" id="room-btn" aria-pressed="false" aria-label="Look around the room"
-                        title="Look around the room">
-                    <i class="fa-solid fa-couch" aria-hidden="true"></i>
+                <!-- Talk to Ollie (the same as clicking Ollie in the room) -->
+                <button class="icon-btn" id="chat-btn" aria-controls="ollie-corner" aria-expanded="false"
+                        aria-label="Talk to Ollie" title="Talk to Ollie">
+                    <i class="fa-regular fa-comments" aria-hidden="true"></i>
                 </button>
 
                 <!-- The light switch: follow the real time, or pick a time of day -->
@@ -118,9 +114,26 @@
             </div>
         </header>
 
+        <!-- A peek at your open tasks. Click one (or "See all") to pull out the tasks drawer. -->
+        <aside class="task-peek" id="task-peek" aria-labelledby="peek-title">
+            <div class="peek-head">
+                <h2 id="peek-title">Tasks <span class="count-pill" id="peek-count"></span></h2>
+                <button class="icon-btn" id="peek-upload" aria-label="Upload a PDF" title="Upload a PDF">
+                    <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+                </button>
+            </div>
+            <ul class="peek-list" id="peek-list">
+                <li class="peek-empty">Loading...</li>
+            </ul>
+            <button class="peek-all" id="open-tasks" aria-controls="tasks-panel" aria-expanded="false">
+                See all tasks <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+        </aside>
+
         <main class="layout" id="layout">
-            <!-- ===== Tasks: the main area ===== -->
-            <section class="panel tasks-panel" id="tasks-panel" aria-labelledby="tasks-title">
+            <div class="tasks-backdrop" id="tasks-backdrop" hidden></div>
+            <!-- ===== Tasks drawer: slides out from the left ===== -->
+            <section class="panel tasks-panel" id="tasks-panel" aria-labelledby="tasks-title" hidden>
                 <div class="panel-head">
                     <div class="panel-title">
                         <h2 id="tasks-title">Your tasks <span class="count-pill" id="task-count"></span></h2>
@@ -134,9 +147,8 @@
                             <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Notes
                             <span class="count-pill" id="notes-count"></span>
                         </button>
-                        <button class="icon-btn expand-btn" id="expand-btn" aria-pressed="false" aria-label="Expand tasks"
-                                title="Expand tasks">
-                            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+                        <button class="icon-btn" id="close-tasks" aria-label="Close tasks" title="Close (Esc)">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
@@ -148,32 +160,21 @@
                 </div>
             </section>
 
-            <!-- ===== Ollie's corner: Pet mode (Ollie talks) or Chat mode (normal chat) ===== -->
-            <section class="ollie-corner" id="ollie-corner" data-mode="pet" aria-labelledby="ollie-title">
+            <!-- ===== Chat with Ollie: slides in from the right, Ollie stays in the room beside it ===== -->
+            <section class="ollie-corner" id="ollie-corner" data-mode="chat" aria-labelledby="ollie-title" hidden>
                 <div class="corner-head">
                     <h1 id="ollie-title">Ollie <span class="role">study buddy</span></h1>
-                    <div class="mode-switch" role="group" aria-label="How to talk to Ollie">
-                        <button class="mode-btn" data-mode="pet" aria-pressed="true">
-                            <i class="fa-solid fa-cat" aria-hidden="true"></i> Pet
-                        </button>
-                        <button class="mode-btn" data-mode="chat" aria-pressed="false">
-                            <i class="fa-regular fa-comments" aria-hidden="true"></i> Chat
-                        </button>
-                    </div>
                     <button class="icon-btn" id="new-chat" aria-label="New chat"
                             title="New chat (Ollie keeps what it remembers about you)">
                         <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                     </button>
+                    <button class="icon-btn" id="close-chat-panel" aria-label="Close the chat" title="Close (Esc)">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
                 </div>
 
-                <!-- Pet mode: Ollie answers in a speech bubble -->
-                <div class="stage">
-                    <div class="speech" id="ollie-speech" aria-live="polite">
-                        <p class="speech-question" id="speech-question" hidden></p>
-                        <div class="speech-text" id="ollie-says">Hi! Let me check your day...</div>
-                        <div class="speech-extras" id="speech-extras"></div>
-                    </div>
-                    <span class="speech-tail" aria-hidden="true"></span>
+                <!-- The original Ollie: hidden, the one in the room is a copy of it -->
+                <div class="stage" hidden>
                     <button class="ollie-btn" id="ollie-btn" aria-label="Pet Ollie">
                         <span class="ollie" id="ollie" data-state="idle">
                             <!-- Ollie the nerdy cat. Moods are set with data-state on #ollie: idle, thinking, explain, happy, oops, sleepy. -->
@@ -444,6 +445,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=32"></script>
+    <script src="main.js?v=34"></script>
 </body>
 </html>

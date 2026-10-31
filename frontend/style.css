@@ -1969,3 +1969,319 @@ body[data-time="night"] {
     -webkit-backdrop-filter: var(--blur);
 }
 .extraction-col.is-done { background: var(--glass-strong); }
+
+/* =========================================================
+   Room home: the room fills the screen and Ollie sits in it.
+   A small task list peeks in on the left; the tasks drawer (left)
+   and the chat with Ollie (right) slide out only when you need them.
+   ========================================================= */
+.app-box {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: var(--gutter-y) var(--gutter-x);
+    pointer-events: none;   /* clicks fall through to the room, except on the bars and panels */
+}
+.app-box > * { pointer-events: auto; }
+.layout { display: contents; }
+.room-objects { inset: 0; z-index: 5; pointer-events: none; }
+.room-objects > *,
+.room-hotspot { pointer-events: auto; }
+.room-toolbar { display: none; }
+/* The clickable objects glow once after the page opens, so you know they're there */
+.room-hotspot { animation: hotspot-hint 1.6s ease-out 0.8s 1; }
+
+/* ---------- The small task list ---------- */
+.task-peek {
+    position: absolute;
+    top: calc(var(--gutter-y) + 72px);
+    left: var(--gutter-x);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: clamp(230px, 18vw, 300px);
+    max-height: calc(100% - 2 * var(--gutter-y) - 160px);
+    padding: 14px;
+    border-radius: var(--radius-xl);
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    color: var(--ink);
+}
+.peek-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 6px; }
+.peek-head h2 { display: flex; align-items: center; gap: 8px; font-size: 1.08rem; }
+.peek-head .icon-btn { width: 36px; height: 36px; font-size: 0.85rem; }
+.peek-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    overflow-y: auto;
+}
+.peek-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 10px;
+    border-radius: 14px;
+    color: var(--ink);
+    text-align: left;
+    transition: background-color var(--fast);
+}
+.peek-item:hover,
+.peek-item:focus-visible { background: var(--accent-soft); }
+.peek-dot { flex: none; width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; }
+.peek-dot.is-overdue { background: var(--rose); }
+.peek-dot.is-soon { background: #F5A524; }
+.peek-dot.is-later { background: var(--mint); }
+.peek-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.peek-text strong {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+.peek-text span { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+.peek-empty,
+.peek-more { padding: 6px 10px; font-size: 0.86rem; color: var(--ink-soft); }
+.peek-all {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-size: 0.88rem;
+    font-weight: 800;
+    transition: filter var(--fast);
+}
+.peek-all:hover { filter: brightness(1.1); }
+
+/* ---------- Ollie in the room ---------- */
+.room-ollie-spot { transition: left 0.35s var(--ease-out); }
+.room-ollie-btn { position: relative; }
+/* "Talk to Ollie" tag when you point at it */
+.room-ollie-btn::after {
+    content: "Talk to Ollie";
+    position: absolute;
+    left: 50%;
+    bottom: 6px;
+    transform: translate(-50%, 4px);
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--fast), transform var(--fast);
+}
+.room-ollie-btn:hover::after,
+.room-ollie-btn:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+body.chat-open .room-ollie-btn::after { content: "Pet me"; }
+
+/* Ollie's speech bubble, above its head */
+.speech.room-speech {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    flex: none;
+    width: max-content;
+    max-width: min(380px, 80vw);
+    max-height: 34vh;
+    overflow-y: auto;
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    background: var(--glass-strong);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    color: var(--ink);
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+body.chat-open .speech.room-speech { display: none; }
+
+/* ---------- The panels that slide out ---------- */
+.tasks-backdrop[hidden],
+.tasks-panel[hidden],
+.ollie-corner[hidden] { display: none !important; }
+
+.tasks-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(8, 6, 16, 0.42);
+    animation: fade-in var(--normal) ease-out;
+}
+@keyframes fade-in { from { opacity: 0; } }
+
+/* Tasks: a wide drawer from the left, roomy cards */
+.tasks-panel.panel {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(720px, calc(100% - 24px));
+    height: auto;
+    min-height: 0;
+    padding: 24px;
+    background: var(--glass-strong);
+    backdrop-filter: blur(28px) saturate(1.3);
+    -webkit-backdrop-filter: blur(28px) saturate(1.3);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    animation: tasks-in 0.32s var(--ease-out);
+}
+@keyframes tasks-in { from { opacity: 0; transform: translateX(-32px); } }
+.tasks-panel .cards-layout {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 16px;
+    margin-right: -8px;
+    padding: 4px 8px 8px 2px;
+}
+.extraction-col.is-spotlit { animation: spotlight 1.8s ease-out; }
+@keyframes spotlight {
+    0%, 45% { box-shadow: 0 0 0 3px var(--accent), 0 0 28px 4px var(--accent-soft); }
+}
+
+/* Chat with Ollie: a tall panel on the right, Ollie stays in the room beside it */
+.ollie-corner {
+    position: fixed;
+    top: calc(var(--gutter-y) + 72px);
+    right: var(--gutter-x);
+    bottom: var(--gutter-y);
+    z-index: 50;
+    width: min(460px, calc(100% - 2 * var(--gutter-x)));
+    height: auto;
+    min-height: 0;
+    gap: 12px;
+    padding: 14px;
+    border-radius: var(--radius-xl);
+    background: var(--glass-strong);
+    backdrop-filter: blur(28px) saturate(1.3);
+    -webkit-backdrop-filter: blur(28px) saturate(1.3);
+    border: 1px solid var(--glass-edge-soft);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+    animation: chat-in 0.32s var(--ease-out);
+}
+@keyframes chat-in { from { opacity: 0; transform: translateX(32px); } }
+.ollie-corner .corner-head {
+    padding: 2px 2px 2px 4px;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 0;
+    box-shadow: none;
+}
+.ollie-corner .corner-head h1 { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; }
+.ollie-corner .corner-head h1::before {
+    content: "";
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent-soft) var(--ollie-face) center / 86% no-repeat;
+}
+/* Bigger, easier-to-read messages */
+.ollie-corner .agent-messages {
+    gap: 14px;
+    padding: 18px 14px;
+    background: var(--card-glass);
+    border-color: var(--glass-edge-soft);
+    box-shadow: none;
+}
+.agent-messages .chat-message { max-width: 94%; }
+.agent-messages .message-bubble { padding: 12px 16px; font-size: 1rem; line-height: 1.65; }
+.agent-messages .ai-message .message-bubble { background: var(--surface-solid); }
+
+/* ---------- Big screens: the dock and its pop-ups sit in the bottom-left corner ---------- */
+@media (min-width: 1024px) {
+    .chill-dock { position: absolute; left: var(--gutter-x); bottom: var(--gutter-y); }
+    .dock-pop { left: var(--gutter-x); bottom: calc(var(--gutter-y) + 64px); }
+    .app-box.music-open #pop-sounds,
+    .app-box.music-open #pop-notes { left: calc(var(--gutter-x) + 392px); }
+    .app-box.music-mini #pop-sounds,
+    .app-box.music-mini #pop-notes { left: calc(var(--gutter-x) + 252px); }
+}
+
+/* ---------- Smaller screens ---------- */
+@media (max-width: 1023px) {
+    .app-box { padding: 12px; }
+    .task-peek { top: 80px; left: 12px; }
+    .ollie-corner { top: 80px; right: 12px; bottom: 76px; width: min(460px, calc(100% - 24px)); }
+}
+/* Phones: the task list is a small button, the chat fills the screen */
+@media (max-width: 767px) {
+    .task-peek {
+        flex-direction: row;
+        align-items: center;
+        width: auto;
+        max-width: calc(100% - 24px);
+        padding: 6px 6px 6px 14px;
+    }
+    .peek-list { display: none; }
+    .peek-head { padding: 0; }
+    .peek-all { padding: 0 14px; min-height: 36px; }
+    /* full screen and solid, so nothing behind shows through */
+    .ollie-corner,
+    .tasks-panel.panel {
+        inset: 0;
+        width: 100%;
+        border-radius: 0;
+        background: var(--surface-solid);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    .ollie-corner { padding: 12px; }
+    .tasks-panel.panel { padding: 16px; }
+    .tasks-panel .cards-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (orientation: portrait) {
+    .speech.room-speech {
+        position: fixed;
+        top: 136px;
+        left: 16px;
+        right: 16px;
+        bottom: auto;
+        width: auto;
+        max-width: none;
+        transform: none;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .tasks-panel.panel,
+    .ollie-corner,
+    .tasks-backdrop,
+    .room-hotspot,
+    .extraction-col.is-spotlit { animation: none; }
+    .room-ollie-spot { transition: none; }
+}

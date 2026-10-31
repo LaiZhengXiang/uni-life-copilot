@@ -297,10 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         whichOllie.appendChild(purr);
         setTimeout(() => purr.remove(), 1300);
     }
-    ollieBtn.addEventListener('click', () => {
-        if (layout.classList.contains('is-expanded')) { setExpanded(false); return; }
-        petOllie(ollie);
-    });
+    ollieBtn.addEventListener('click', () => petOllie(ollie));
 
     // At night, Ollie dozes off if you leave it alone for a while, and wakes up when you come back
     let lastActivity = Date.now();
@@ -340,41 +337,106 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ---------- Pet mode / Chat mode, expand, notes drawer ----------
+    // ---------- The chat panel (right) and the tasks drawer (left) ----------
+    // The room is the home screen; these slide out when you need them, like taking something out of a drawer.
     const layout = document.getElementById('layout');
-    const modeButtons = document.querySelectorAll('.mode-btn');
+    const chatBtn = document.getElementById('chat-btn');
+    const roomOllieBtn = document.getElementById('room-ollie-btn');
+    const tasksPanel = document.getElementById('tasks-panel');
+    const tasksBackdrop = document.getElementById('tasks-backdrop');
+    const openTasksBtn = document.getElementById('open-tasks');
+    const isChatOpen = () => !ollieCorner.hidden;
+    const isTasksOpen = () => !tasksPanel.hidden;
 
-    function setMode(mode) {
-        ollieCorner.dataset.mode = mode;
-        modeButtons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-        saveSetting('ollieMode', mode);
-        if (mode === 'chat') agentMessages.scrollTop = agentMessages.scrollHeight;
+    function setChat(open) {
+        ollieCorner.hidden = !open;
+        document.body.classList.toggle('chat-open', open);
+        [chatBtn, roomOllieBtn].forEach(b => b.setAttribute('aria-expanded', String(open)));
+        roomOllieBtn.setAttribute('aria-label', open ? 'Pet Ollie' : 'Talk to Ollie');
+        if (open) {
+            if (isTasksOpen()) setTasks(false, { quiet: true });
+            agentMessages.scrollTop = agentMessages.scrollHeight;
+            agentInput.focus();
+        } else {
+            resetSpeech();   // back in the room, Ollie shows the greeting again
+            roomOllieBtn.focus();
+        }
+        placeRoomObjects();   // Ollie moves aside so the chat doesn't cover it
     }
-    modeButtons.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    chatBtn.addEventListener('click', () => setChat(!isChatOpen()));
+    document.getElementById('close-chat-panel').addEventListener('click', () => setChat(false));
 
-    const expandBtn = document.getElementById('expand-btn');
-    function setExpanded(on) {
-        layout.classList.toggle('is-expanded', on);
-        expandBtn.setAttribute('aria-pressed', String(on));
-        expandBtn.setAttribute('aria-label', on ? 'Show Ollie again' : 'Expand tasks');
-        expandBtn.title = on ? 'Show Ollie again' : 'Expand tasks';
-        expandBtn.querySelector('i').className = `fa-solid ${on ? 'fa-down-left-and-up-right-to-center' : 'fa-up-right-and-down-left-from-center'}`;
-        ollieBtn.setAttribute('aria-label', on ? 'Show Ollie again' : 'Pet Ollie');
-        saveSetting('tasksExpanded', on ? '1' : '0');
+    // focusTask: the id of a task to scroll to and highlight
+    function setTasks(open, { focusTask = null, quiet = false } = {}) {
+        tasksPanel.hidden = !open;
+        tasksBackdrop.hidden = !open;
+        openTasksBtn.setAttribute('aria-expanded', String(open));
+        if (open) {
+            if (isChatOpen()) setChat(false);
+            const card = focusTask && cardsContainer.querySelector(`.extraction-col[data-id="${focusTask}"]`);
+            if (card) {
+                card.scrollIntoView({ block: 'center' });
+                card.classList.remove('is-spotlit');
+                void card.offsetWidth;   // restart the highlight
+                card.classList.add('is-spotlit');
+            }
+            document.getElementById('close-tasks').focus();
+        } else if (!quiet) {
+            openTasksBtn.focus();
+        }
     }
-    expandBtn.addEventListener('click', () => setExpanded(!layout.classList.contains('is-expanded')));
+    openTasksBtn.addEventListener('click', () => setTasks(true));
+    document.getElementById('close-tasks').addEventListener('click', () => setTasks(false));
+    tasksBackdrop.addEventListener('click', () => setTasks(false));
+    document.getElementById('peek-upload').addEventListener('click', () => fileInput.click());
+
+    // The small task list in the room: open tasks, overdue and soonest first
+    const peekList = document.getElementById('peek-list');
+    const peekCount = document.getElementById('peek-count');
+    function renderPeek(tasks) {
+        const open = tasks.filter(t => !t.is_done)
+            .sort((a, b) => (a.deadline ? new Date(a.deadline) : Infinity) - (b.deadline ? new Date(b.deadline) : Infinity));
+        peekCount.textContent = open.length || '';
+        if (!open.length) {
+            peekList.innerHTML = `<li class="peek-empty">${tasks.length
+                ? 'All done. Nice work!' : 'No tasks yet. Upload a brief or ask Ollie to add one.'}</li>`;
+            return;
+        }
+        const MAX = 5;
+        peekList.innerHTML = open.slice(0, MAX).map(t => {
+            const left = t.deadline ? daysLeftText(t.deadline) : 'no deadline';
+            const level = left === 'overdue' ? 'is-overdue'
+                : /today|tomorrow|^[23] days/.test(left) ? 'is-soon' : 'is-later';
+            return `<li>
+                <button class="peek-item" data-id="${t.id}">
+                    <span class="peek-dot ${level}" aria-hidden="true"></span>
+                    <span class="peek-text">
+                        <strong>${escapeHtml(t.title || 'Untitled')}</strong>
+                        <span>${escapeHtml(left)}</span>
+                    </span>
+                </button>
+            </li>`;
+        }).join('') + (open.length > MAX ? `<li class="peek-more">+${open.length - MAX} more</li>` : '');
+    }
+    peekList.addEventListener('click', (e) => {
+        const item = e.target.closest('.peek-item');
+        if (item) setTasks(true, { focusTask: item.dataset.id });
+    });
 
     const drawer = document.getElementById('notes-drawer');
     const drawerBackdrop = document.getElementById('drawer-backdrop');
     const notesBtn = document.getElementById('notes-btn');
+    let drawerOpener = null;   // the button that opened the drawer gets the focus back
     function setDrawer(open) {
         drawer.hidden = !open;
         drawerBackdrop.hidden = !open;
         notesBtn.setAttribute('aria-expanded', String(open));
-        if (open) document.getElementById('close-drawer').focus();
-        // in room mode the Notes button is hidden, so go back to the room's Drawer button
-        else if (document.body.classList.contains('room-mode')) document.querySelector('.room-tool[data-object="drawer"]').focus();
-        else notesBtn.focus();
+        if (open) {
+            drawerOpener = document.activeElement;
+            document.getElementById('close-drawer').focus();
+        } else if (drawerOpener && drawerOpener.isConnected) {
+            drawerOpener.focus();
+        }
     }
     notesBtn.addEventListener('click', () => setDrawer(true));
     document.getElementById('close-drawer').addEventListener('click', () => setDrawer(false));
@@ -389,7 +451,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setPop(name);   // closes it
             document.querySelector(`.dock-btn[data-pop="${name}"]`).focus();
         }
-        else if (document.body.classList.contains('room-mode')) setRoomMode(false);
+        else if (isTasksOpen()) setTasks(false);
+        else if (isChatOpen()) setChat(false);
     });
 
     // ---------- Ollie's note: the full version of a long answer ----------
@@ -407,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function closeNote() {
         noteModal.classList.remove('active');
-        ollieBtn.focus();
+        (isChatOpen() ? agentInput : roomOllieBtn).focus();
     }
     document.getElementById('close-note').addEventListener('click', closeNote);
     noteModal.addEventListener('click', (e) => { if (e.target === noteModal) closeNote(); });
@@ -420,13 +483,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ---------- Room mode: look around the room and click things ----------
+    // ---------- The room: the home screen, with things you can click ----------
     const roomObjects = document.getElementById('room-objects');
-    const roomBtn = document.getElementById('room-btn');
-    const roomSpeech = document.getElementById('room-speech');
     const roomOllieSpot = document.getElementById('room-ollie-spot');
     const ROOM_PICTURE = { width: 1672, height: 940 };   // updated below with the picture's real size
     const OLLIE_ON_DESK = { x: 0.69, bottom: 0.735, height: 0.25 };   // where Ollie sits in the picture
+
+    // Ollie says something short in the room (the clock, the calendar...)
+    function roomSay(html) {
+        clearInterval(typingTimer);
+        speechQuestion.hidden = true;
+        speechExtras.innerHTML = '';
+        ollieSays.dataset.kind = 'room';
+        ollieSays.innerHTML = html;
+    }
 
     // Finds where the picture really is on screen, so the clickable spots line up with the objects.
     // The picture always fills the screen ("cover"): wide screens anchor it at 50% / 20% (clock in view),
@@ -449,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sizeCheck.onload = () => {
         ROOM_PICTURE.width = sizeCheck.naturalWidth;
         ROOM_PICTURE.height = sizeCheck.naturalHeight;
-        if (!roomObjects.hidden) placeRoomObjects();
+        placeRoomObjects();
     };
     sizeCheck.src = 'assets/room/room-morning.webp';
 
@@ -468,31 +538,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // the drawn cat is 260 x 252; a picture mascot uses its own shape
         const shape = mascotGroups ? mascotShape : 260 / 252;
         const ollieWidth = ollieHeight * shape;
+        let left = pic.left + OLLIE_ON_DESK.x * pic.width - ollieWidth / 2;
+        // With the chat open, Ollie scoots left so it sits beside the chat, not under it
+        if (isChatOpen() && innerWidth >= 768) left = Math.min(left, ollieCorner.offsetLeft - ollieWidth - 24);
+        left = Math.max(8, Math.min(left, innerWidth - ollieWidth - 8));   // always fully on screen
         Object.assign(roomOllieSpot.style, {
             width: `${ollieWidth}px`,
-            left: `${pic.left + OLLIE_ON_DESK.x * pic.width - ollieWidth / 2}px`,
+            left: `${left}px`,
             top: `${pic.top + OLLIE_ON_DESK.bottom * pic.height - ollieHeight}px`,
         });
     }
 
-    function setRoomMode(on) {
-        document.body.classList.toggle('room-mode', on);
-        roomObjects.hidden = !on;
-        roomBtn.setAttribute('aria-pressed', String(on));
-        roomBtn.setAttribute('aria-label', on ? 'Back to work' : 'Look around the room');
-        roomBtn.title = on ? 'Back to work' : 'Look around the room';
-        if (on) {
-            placeRoomObjects();
-            roomSpeech.textContent = 'Welcome to my room! Click the clock, calendar, lamp or drawer.';
-            roomObjects.querySelector('.room-tool').focus();
-        } else {
-            roomBtn.focus();
-        }
-    }
-
-    roomBtn.addEventListener('click', () => setRoomMode(!document.body.classList.contains('room-mode')));
-    document.getElementById('back-to-work').addEventListener('click', () => setRoomMode(false));
-    window.addEventListener('resize', () => { if (!roomObjects.hidden) placeRoomObjects(); });
+    roomObjects.hidden = false;
+    placeRoomObjects();
+    window.addEventListener('resize', placeRoomObjects);
 
     // Unfinished assignments with a deadline, soonest first
     function openDeadlines() {
@@ -517,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!today.length && !next.length) html += 'Nothing due today or tomorrow. Nice!';
             if (today.length) html += `Due today: ${list(today)}.<br>`;
             if (next.length) html += `Due tomorrow: ${list(next)}.`;
-            roomSpeech.innerHTML = html;
+            roomSay(html);
             setOllie(today.length ? 'explain' : 'happy', 1.6);
         },
         // Calendar: this month's deadlines, and the calendar download
@@ -528,12 +587,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return d >= now && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
             });
             const month = now.toLocaleDateString('en-MY', { month: 'long' });
-            roomSpeech.innerHTML = (thisMonth.length
+            roomSay((thisMonth.length
                 ? `<strong>Deadlines left in ${month}:</strong><ul>${thisMonth.slice(0, 6).map(t =>
                     `<li><strong>${shortDate(t.deadline)}</strong> ${escapeHtml(t.title)}</li>`).join('')}</ul>`
                 : `<strong>No more deadlines in ${month}.</strong>`)
                 + `<a class="btn btn-primary" href="${API}/api/calendar.ics" download>
-                       <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Add to my phone calendar</a>`;
+                       <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Add to my phone calendar</a>`);
             setOllie('explain', 1.6);
         },
         // Lamp: switch between a day and a night look, or back to the real time
@@ -541,28 +600,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const dark = ['evening', 'night'].includes(document.body.dataset.time);
             if (timeMode.value !== 'auto') {
                 timeMode.value = 'auto';
-                roomSpeech.textContent = 'Back to the real time outside.';
+                roomSay('Back to the real time outside.');
             } else {
                 timeMode.value = dark ? 'morning' : 'night';
-                roomSpeech.textContent = dark ? 'Lights on! Good morning vibes.' : 'Lights off... cozy night mode.';
+                roomSay(dark ? 'Lights on! Good morning vibes.' : 'Lights off... cozy night mode.');
             }
             timeMode.dispatchEvent(new Event('change'));
             setOllie('happy', 1.2);
         },
         // Drawer: your lecture notes
         drawer() {
-            roomSpeech.textContent = 'Here are the notes I have read.';
+            roomSay('Here are the notes I have read.');
             setDrawer(true);
         },
     };
 
     roomObjects.addEventListener('click', (e) => {
         const target = e.target.closest('[data-object]');
-        if (target) ROOM_ACTIONS[target.dataset.object]();
+        if (!target) return;
+        if (isChatOpen()) setChat(false);
+        ROOM_ACTIONS[target.dataset.object]();
     });
 
-    // Petting works on the desk Ollie too
-    document.getElementById('room-ollie-btn').addEventListener('click', () => petOllie(roomOllie));
+    // Click Ollie to talk (it squishes too); with the chat already open, a click just pets it
+    roomOllieBtn.addEventListener('click', () => {
+        if (isChatOpen()) petOllie(roomOllie);
+        else setChat(true);
+    });
 
     // ---------- Chill dock: lo-fi radio, cozy sounds, focus timer, quick notes ----------
     const dockButtons = document.querySelectorAll('.dock-btn');
@@ -1064,7 +1128,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // You can drop a PDF on the drawer's drop zone or straight onto the task list
-    const tasksPanel = document.getElementById('tasks-panel');
     [dropZone, tasksPanel].forEach(target => {
         ['dragenter', 'dragover'].forEach(eventName => {
             target.addEventListener(eventName, () => target.classList.add('dragover'), false);
@@ -1301,7 +1364,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const agentMessages = document.getElementById('agent-messages');
     const agentInput = document.getElementById('agent-input');
     const agentSendBtn = document.getElementById('agent-send');
-    const isPetMode = () => ollieCorner.dataset.mode === 'pet';
 
     function appendAgentMessage(html, isUser = false) {
         const msgDiv = document.createElement('div');
@@ -1312,11 +1374,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return msgDiv;
     }
 
-    // Small extras (tool badges, sources) show in the chat history and under Ollie's bubble
+    // Small extras (tool badges, sources) under an answer in the chat
     function addExtra(element) {
         agentMessages.appendChild(element);
         agentMessages.scrollTop = agentMessages.scrollHeight;
-        speechExtras.appendChild(element.cloneNode(true));
     }
 
     // RAG: which of your PDFs the answer came from, so you can open them and check
@@ -1412,12 +1473,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="cancel-task-btn">Cancel</button>
         `;
         card.appendChild(buttons);
-        if (isPetMode()) {
-            speechExtras.appendChild(card);
-        } else {
-            agentMessages.appendChild(card);
-            agentMessages.scrollTop = agentMessages.scrollHeight;
-        }
+        agentMessages.appendChild(card);
+        agentMessages.scrollTop = agentMessages.scrollHeight;
 
         buttons.querySelector('.cancel-task-btn').addEventListener('click', () => {
             buttons.textContent = 'Cancelled. Nothing was saved.';
@@ -1580,9 +1637,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadConversation();
     loadMemory();
 
-    // Come back to the view you used last time
-    setMode(readSetting('ollieMode', 'pet') === 'chat' ? 'chat' : 'pet');
-    if (readSetting('tasksExpanded', '0') === '1') setExpanded(true);
 
     // Fetch API Functions
     async function loadExistingTasks() {
@@ -1693,6 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const toDo = tasks.filter(t => !t.is_done).length;
         taskCount.textContent = tasks.length ? `${toDo} to do` : '';
         notesCount.textContent = notes.length || '';
+        renderPeek(tasks);
 
         cardsContainer.innerHTML = tasks.length
             ? tasks.map(renderCard).join('')
