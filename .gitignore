@@ -17,3 +17,11 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Mascot pictures: a meme character drawn by someone else, used only on this computer.
+# Without them the app shows the drawn Ollie cat, so the public version stays clean.
+frontend/assets/mascot/*.png
+frontend/assets/mascot/*.jpg
+frontend/assets/mascot/*.webp
+frontend/assets/mascot/mascot.json
+/mascot/

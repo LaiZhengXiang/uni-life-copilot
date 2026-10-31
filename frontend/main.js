@@ -153,8 +153,101 @@ document.addEventListener('DOMContentLoaded', () => {
     function setOllie(state, seconds) {
         clearTimeout(ollieTimer);
         allOllies.forEach(o => { o.dataset.state = state; });
-        if (seconds) ollieTimer = setTimeout(() => allOllies.forEach(o => { o.dataset.state = 'idle'; }), seconds * 1000);
+        showMascotPicture(state);
+        if (seconds) ollieTimer = setTimeout(() => {
+            allOllies.forEach(o => { o.dataset.state = 'idle'; });
+            showMascotPicture('idle');
+        }, seconds * 1000);
     }
+
+    // ---------- Picture mascot ----------
+    // If assets/mascot/mascot.json exists (made by tools/remove_bg.py), your own pictures replace the drawn cat.
+    // It lists three groups: idle (just chilling), pressed (when you press it) and answer (while it answers you).
+    const MASCOT_GROUP = { thinking: 'answer', explain: 'answer', happy: 'pressed' };  // other moods use idle
+    let mascotGroups = null;
+    let mascotGroup = '';
+    let mascotShape = 1;      // width / height of the box the pictures sit in
+    let mascotHeld = false;   // true while you hold the mouse or finger on it
+    let idleSwapTimer = null;
+
+    function randomFrom(list, not) {
+        const choices = list.length > 1 ? list.filter(name => name !== not) : list;
+        return choices[Math.floor(Math.random() * choices.length)];
+    }
+    function setMascotPicture(name) {
+        document.querySelectorAll('.mascot-img').forEach(img => { img.src = `assets/mascot/${name}`; });
+    }
+    function currentMascotPicture() {
+        const src = document.querySelector('.mascot-img').getAttribute('src') || '';
+        return src.split('/').pop();
+    }
+    // Shows a random picture from the mood's group (only when the group changes, or when forced)
+    function showMascotPicture(state, force) {
+        if (!mascotGroups) return;
+        let group = MASCOT_GROUP[state] || 'idle';
+        if (!mascotGroups[group]?.length) group = 'idle';
+        if (group === mascotGroup && !force) return;
+        mascotGroup = group;
+        setMascotPicture(randomFrom(mascotGroups[group], currentMascotPicture()));
+    }
+    // While nobody touches it, it changes to another idle picture every 6 to 14 seconds
+    function queueIdleSwap() {
+        clearTimeout(idleSwapTimer);
+        idleSwapTimer = setTimeout(() => {
+            if (!mascotHeld && mascotGroup === 'idle') showMascotPicture('idle', true);
+            queueIdleSwap();
+        }, 6000 + Math.random() * 8000);
+    }
+
+    // Press and hold: it squishes down and shows a "pressed" picture; let go and it bounces back
+    function pressMascot(button) {
+        if (!mascotGroups || ollie.dataset.state === 'thinking') return;
+        mascotHeld = true;
+        clearTimeout(ollieTimer);
+        allOllies.forEach(o => { o.dataset.state = 'happy'; });
+        showMascotPicture('happy', true);
+        button.classList.remove('is-bouncing');
+        button.classList.add('is-squished');
+    }
+    function releaseMascot(button) {
+        if (!button.classList.contains('is-squished')) return;
+        mascotHeld = false;
+        button.classList.remove('is-squished');
+        void button.offsetWidth;  // restart the bounce animation
+        button.classList.add('is-bouncing');
+        setOllie('happy', 1.2);   // keep the pressed picture a moment, then back to idle
+    }
+    ['ollie-btn', 'room-ollie-btn'].forEach(id => {
+        const button = document.getElementById(id);
+        button.addEventListener('pointerdown', () => pressMascot(button));
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(type =>
+            button.addEventListener(type, () => releaseMascot(button)));
+        button.addEventListener('animationend', (e) => {
+            if (e.animationName === 'pic-boing') button.classList.remove('is-bouncing');
+        });
+    });
+
+    fetch('assets/mascot/mascot.json', { cache: 'no-cache' })
+        .then(response => response.ok ? response.json() : null)
+        .then(groups => {
+            if (!groups?.idle?.length) return;
+            const first = new Image();
+            first.onload = () => {
+                mascotGroups = groups;
+                mascotShape = first.naturalWidth / first.naturalHeight;
+                document.body.classList.add('picture-mascot');
+                document.body.style.setProperty('--mascot-shape', mascotShape);
+                document.body.style.setProperty('--ollie-face', `url("${first.src}")`);
+                document.querySelectorAll('.mascot-img').forEach(img => { img.hidden = false; });
+                showMascotPicture(ollie.dataset.state, true);
+                queueIdleSwap();
+                // the little logo uses the picture too
+                document.getElementById('brand-ollie').innerHTML = `<img class="brand-mascot" src="${first.src}" alt="">`;
+                if (!roomObjects.hidden) placeRoomObjects();
+            };
+            first.src = `assets/mascot/${groups.idle[0]}`;
+        })
+        .catch(() => {});  // no pictures: keep the drawn cat
 
     // A small copy of Ollie's face in the top bar
     const brandOllie = ollie.querySelector('.ollie-svg').cloneNode(true);
@@ -358,7 +451,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         const ollieHeight = OLLIE_ON_DESK.height * pic.height;
-        const ollieWidth = ollieHeight * 260 / 252;   // the drawing is 260 x 252
+        // the drawn cat is 260 x 252; a picture mascot uses its own shape
+        const shape = mascotGroups ? mascotShape : 260 / 252;
+        const ollieWidth = ollieHeight * shape;
         Object.assign(roomOllieSpot.style, {
             width: `${ollieWidth}px`,
             left: `${pic.left + OLLIE_ON_DESK.x * pic.width - ollieWidth / 2}px`,

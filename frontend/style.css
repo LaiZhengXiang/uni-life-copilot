@@ -1947,3 +1947,25 @@ body { display: flow-root; }
         z-index: 45;
     }
 }
+
+/* =========================================================
+   Task area: the big panel is almost clear glass,
+   the task cards on it keep a solid tint so they're easy to read
+   ========================================================= */
+body[data-time="morning"],
+body[data-time="afternoon"] {
+    --panel-glass: rgba(255, 255, 255, 0.06);
+    --card-glass: rgba(255, 255, 255, 0.62);
+}
+body[data-time="evening"],
+body[data-time="night"] {
+    --panel-glass: rgba(18, 14, 30, 0.10);
+    --card-glass: rgba(18, 14, 30, 0.66);
+}
+.tasks-panel { background: var(--panel-glass); }
+.extraction-col {
+    background: var(--card-glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+}
+.extraction-col.is-done { background: var(--glass-strong); }

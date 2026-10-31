@@ -239,3 +239,74 @@
     .ollie-zzz span { animation: none !important; }
     .ollie-zzz span { opacity: 1; }
 }
+
+/* =========================================================
+   Picture mascot: your own drawing (assets/mascot/*.png) instead of the drawn cat.
+   The picture can't blink, so the moods are shown with gentle movement instead.
+   ========================================================= */
+.mascot-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    transform-origin: 50% 100%;
+    /* every picture sits in the same box, so the mascot doesn't jump when the picture changes */
+    aspect-ratio: var(--mascot-shape, 1);
+    object-fit: contain;
+    object-position: 50% 100%;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.mascot-img[hidden] { display: none; }
+body.picture-mascot .ollie-svg { display: none; }
+
+/* Idle: slow breathing */
+body.picture-mascot .ollie .mascot-img { animation: pic-breathe 3.6s ease-in-out infinite; }
+/* Thinking: a slow tilt from side to side */
+body.picture-mascot .ollie[data-state="thinking"] .mascot-img { animation: pic-think 1.6s ease-in-out infinite; }
+/* Explain: little squishes, like it's talking */
+body.picture-mascot .ollie[data-state="explain"] .mascot-img { animation: pic-talk 0.5s ease-in-out infinite; }
+/* Oops: a shake */
+body.picture-mascot .ollie[data-state="oops"] .mascot-img { animation: pic-shake 0.4s ease-in-out 2; }
+/* Sleepy: very slow breathing, a little sunk down */
+body.picture-mascot .ollie[data-state="sleepy"] .mascot-img { animation: pic-breathe 6s ease-in-out infinite; filter: brightness(0.92); }
+
+/* The pictures draw their own hands, so the ☝️ stays hidden */
+body.picture-mascot .ollie .ollie-finger { display: none; }
+
+/* Press and hold: it squishes flat; let go: it bounces back (scale works on top of the other animations) */
+body.picture-mascot .ollie { transform-origin: 50% 100%; transition: scale 0.12s ease-out; }
+body.picture-mascot .is-squished .ollie { scale: 1.16 0.78; }
+body.picture-mascot .is-squished .mascot-img { animation: none; }
+body.picture-mascot .is-bouncing .ollie { animation: pic-boing 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* The small logo in the top bar */
+.brand-mascot { display: block; width: 100%; height: auto; }
+
+/* (The chat avatar and toast face get the first idle picture from main.js) */
+
+@keyframes pic-breathe {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.015, 0.985); }
+}
+@keyframes pic-think {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+}
+@keyframes pic-talk {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.03, 0.97); }
+}
+@keyframes pic-boing {
+    0% { scale: 1.16 0.78; }
+    40% { scale: 0.92 1.1; }
+    70% { scale: 1.04 0.96; }
+    100% { scale: 1 1; }
+}
+@keyframes pic-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4%); }
+    75% { transform: translateX(4%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    body.picture-mascot .mascot-img, body.picture-mascot .ollie { animation: none !important; transition: none; }
+}
