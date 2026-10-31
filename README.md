@@ -2,20 +2,33 @@
 
 > 🚧 **Work in progress.** Core features work; more are on the way.
 
-An AI-powered planner for university students. Drop in an assignment brief (PDF) and Uni-Life Copilot reads it, pulls out the tasks and deadlines, and lays them out on a task board. You can also chat with the document to ask questions about the assignment.
+A cozy AI study buddy for university students. Drop in an assignment brief or lecture notes (PDF) and **Ollie**, a nerdy cat with big glasses, reads them, turns assignments into tasks with deadlines, and answers questions from your own notes. It all lives in a painted study room that follows the time of day.
 
 ## Features
 
-- **PDF assignment parser**: upload a PDF; the text is extracted with PyMuPDF and an AI model turns it into structured tasks with deadlines.
-- **Task board**: extracted tasks are saved in a local SQLite database and shown as cards; delete the ones you've finished.
-- **Chat with your document**: ask questions about an uploaded assignment and get answers based on its content.
-- **Ask Copilot (AI agent)**: ask "What's due this week?" and the agent uses a `get_deadlines` tool to look up your real tasks before answering.
-- **AI backups**: tries Groq first, then a second Groq model, then Google Gemini, so a busy AI service doesn't stop the app.
+**Study agent (Ollie)**
+- **Tools + agent loop**: Ollie can use several tools in a row (check deadlines, add or edit a task, search your notes) before answering.
+- **Human in the loop**: Ollie never saves on its own; new tasks and changes show a Save card first.
+- **Answers from your notes (RAG)**: PDFs are cut into pieces, embedded with Gemini, and searched, so answers cite which notes they came from.
+- **Memory**: remembers the chat and your study habits (for example "I don't study after 11pm"), which you can see and delete.
+- **Pet or Chat mode**: Ollie answers in a speech bubble (with "View note" for long answers) or in a normal chat.
+
+**Tasks**
+- **PDF parser**: an AI model turns an assignment brief into a task with a deadline, steps and key concepts.
+- **Progress**: tick off steps, mark tasks done, edit them; lecture notes go in a separate notes drawer.
+- **Reminders**: a due-soon bell, and a calendar file (.ics) for Google Calendar or your phone with 1-day reminders.
+
+**Cozy room**
+- A painted room background that changes with the real time (morning, afternoon, evening, night), with liquid-glass panels.
+- **Room mode**: click the clock, calendar, lamp or drawer in the picture.
+- **Chill dock**: lo-fi radio (any YouTube stream), rain / fireplace / wind sounds made with the Web Audio API, a 25/5 focus timer, and quick notes.
+
+**Reliable AI**: tries Groq first, then a second Groq model, then Google Gemini, so a busy AI service doesn't stop the app.
 
 ## Built with
 
 - **Backend:** Python, FastAPI, SQLAlchemy (SQLite), PyMuPDF, Groq API, Google Gemini API
-- **Frontend:** HTML, CSS, vanilla JavaScript
+- **Frontend:** HTML, CSS, vanilla JavaScript (SVG mascot, Web Audio API)
 
 ## Run it locally
 
@@ -45,13 +58,20 @@ An AI-powered planner for university students. Drop in an assignment brief (PDF)
 
 2. **Frontend**
 
-   Open `frontend/index.html` in your browser (or serve the folder with any static server, e.g. VS Code Live Server).
+   Serve the folder with any static server, then open http://127.0.0.1:5600:
+
+   ```bash
+   cd frontend
+   python -m http.server 5600
+   ```
 
 ## Roadmap
 
-- [ ] Calendar view of upcoming deadlines
-- [ ] Reminders before due dates
+- [x] Calendar file with deadline reminders
+- [x] Agent loop, memory and answers from your notes (RAG)
+- [ ] Ultra-wide room pictures, so the room fits wide screens
 - [ ] Deploy the backend so it runs without a local setup
+- [ ] Daily reminder message (for example on Telegram)
 
 ## Author
 
