@@ -18,6 +18,7 @@ class TaskOut(ai_service.ParsedDocument):
     """A saved task as the website sees it: the parsed document plus your progress."""
     is_done: bool = False
     completed_milestones: List[int] = []
+    subject_id: Optional[int] = None
 
 
 class TaskUpdate(BaseModel):

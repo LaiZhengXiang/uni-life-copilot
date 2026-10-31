@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="stylesheet" href="style.css?v=34">
     <link rel="stylesheet" href="ollie.css?v=32">
 </head>
 <!-- data-time (morning / afternoon / evening / night) is set by main.js from your clock -->
@@ -46,6 +46,7 @@
         <button class="room-hotspot" data-object="clock" data-box="0.198,0.006,0.288,0.165" data-label="Clock: today's plan" aria-label="Clock: today's plan"></button>
         <button class="room-hotspot" data-object="calendar" data-box="0.213,0.195,0.314,0.438" data-label="Calendar: deadlines" aria-label="Calendar: deadlines"></button>
         <button class="room-hotspot" data-object="lamp" data-box="0.366,0.398,0.500,0.705" data-label="Lamp: light switch" aria-label="Lamp: light switch"></button>
+        <button class="room-hotspot" data-object="bookshelf" data-box="0.005,0.47,0.135,0.86" data-label="Bookshelf: your subjects" aria-label="Bookshelf: your subjects"></button>
         <button class="room-hotspot" data-object="drawer" data-box="0.326,0.770,0.466,0.995" data-label="Drawer: your notes" aria-label="Drawer: your notes"></button>
 
         <!-- Ollie sitting on the desk (a copy of the drawing, made by main.js). Click it to talk. -->
@@ -77,6 +78,12 @@
                 <button class="icon-btn" id="chat-btn" aria-controls="ollie-corner" aria-expanded="false"
                         aria-label="Talk to Ollie" title="Talk to Ollie">
                     <i class="fa-regular fa-comments" aria-hidden="true"></i>
+                </button>
+
+                <!-- Your subjects (the same as clicking the bookshelf in the room) -->
+                <button class="icon-btn" id="shelf-btn" aria-controls="shelf-panel" aria-expanded="false"
+                        aria-label="Your subjects" title="Your subjects (bookshelf)">
+                    <i class="fa-solid fa-book" aria-hidden="true"></i>
                 </button>
 
                 <!-- The light switch: follow the real time, or pick a time of day -->
@@ -158,6 +165,24 @@
                         <h3>Loading your tasks...</h3>
                     </div>
                 </div>
+            </section>
+
+            <!-- ===== Bookshelf: one folder per subject, with its PDFs, tasks and your own notes ===== -->
+            <div class="tasks-backdrop" id="shelf-backdrop" hidden></div>
+            <section class="panel shelf-panel" id="shelf-panel" aria-labelledby="shelf-title" hidden>
+                <div class="panel-head shelf-head">
+                    <button class="icon-btn" id="shelf-back" aria-label="Back" title="Back" hidden>
+                        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                    </button>
+                    <div class="panel-title">
+                        <h2 id="shelf-title">Bookshelf</h2>
+                        <p class="list-hint" id="shelf-hint">One folder per subject: lecture notes, assignments and your own notes.</p>
+                    </div>
+                    <button class="icon-btn" id="close-shelf" aria-label="Close the bookshelf" title="Close (Esc)">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="shelf-body" id="shelf-body" aria-live="polite"></div>
             </section>
 
             <!-- ===== Chat with Ollie: slides in from the right, Ollie stays in the room beside it ===== -->
@@ -415,6 +440,7 @@
             <div class="chat-header">
                 <h3 id="note-title"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> Ollie's note</h3>
                 <div class="note-actions">
+                    <button class="btn btn-soft" id="save-summary-note" hidden><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i> Save to my notes</button>
                     <button class="btn btn-soft" id="copy-note"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
                     <button class="icon-btn" id="close-note" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                 </div>
@@ -445,6 +471,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=34"></script>
+    <script src="main.js?v=36"></script>
 </body>
 </html>

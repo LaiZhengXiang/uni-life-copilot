@@ -2126,6 +2126,7 @@ body.chat-open .speech.room-speech { display: none; }
 /* ---------- The panels that slide out ---------- */
 .tasks-backdrop[hidden],
 .tasks-panel[hidden],
+.shelf-panel[hidden],
 .ollie-corner[hidden] { display: none !important; }
 
 .tasks-backdrop {
@@ -2137,8 +2138,9 @@ body.chat-open .speech.room-speech { display: none; }
 }
 @keyframes fade-in { from { opacity: 0; } }
 
-/* Tasks: a wide drawer from the left, roomy cards */
-.tasks-panel.panel {
+/* Tasks and the bookshelf: a wide drawer from the left, roomy cards */
+.tasks-panel.panel,
+.shelf-panel.panel {
     position: fixed;
     top: 12px;
     left: 12px;
@@ -2253,7 +2255,8 @@ body.chat-open .speech.room-speech { display: none; }
     .peek-all { padding: 0 14px; min-height: 36px; }
     /* full screen and solid, so nothing behind shows through */
     .ollie-corner,
-    .tasks-panel.panel {
+    .tasks-panel.panel,
+    .shelf-panel.panel {
         inset: 0;
         width: 100%;
         border-radius: 0;
@@ -2262,7 +2265,8 @@ body.chat-open .speech.room-speech { display: none; }
         -webkit-backdrop-filter: none;
     }
     .ollie-corner { padding: 12px; }
-    .tasks-panel.panel { padding: 16px; }
+    .tasks-panel.panel,
+    .shelf-panel.panel { padding: 16px; }
     .tasks-panel .cards-layout { grid-template-columns: minmax(0, 1fr); }
 }
 @media (orientation: portrait) {
@@ -2279,9 +2283,196 @@ body.chat-open .speech.room-speech { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
     .tasks-panel.panel,
+    .shelf-panel.panel,
     .ollie-corner,
     .tasks-backdrop,
     .room-hotspot,
     .extraction-col.is-spotlit { animation: none; }
     .room-ollie-spot { transition: none; }
 }
+
+/* =========================================================
+   Bookshelf: subject folders, their files and your own notes
+   ========================================================= */
+.shelf-head { align-items: flex-start; gap: 10px; }
+#shelf-back[hidden] { display: none; }
+.shelf-head .panel-title { flex: 1; min-width: 0; }
+.shelf-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-right: -8px;
+    padding: 2px 8px 8px 2px;
+}
+.shelf-empty,
+.shelf-loading { font-size: 0.92rem; color: var(--ink-soft); }
+
+/* The shelf: one "book" per subject, with a coloured spine */
+.shelf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+}
+.subject-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 140px;
+    padding: 16px 16px 14px 24px;
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--card-glass);
+    border: 1px solid var(--glass-edge-soft);
+    color: var(--ink);
+    text-align: left;
+    transition: transform var(--fast), box-shadow var(--fast);
+}
+.subject-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 9px;
+    background: hsl(var(--hue) 62% 58%);
+}
+.subject-card:hover { transform: translateY(-2px); box-shadow: var(--glass-shadow); }
+.subject-code {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: hsl(var(--hue) 62% 58% / 0.22);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+.subject-card strong { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; line-height: 1.3; }
+.subject-counts { margin-top: auto; font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+.subject-card.is-new {
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 2px dashed var(--line-strong);
+    color: var(--accent-text);
+}
+.subject-card.is-new::before { display: none; }
+.subject-card.is-new i { font-size: 1.3rem; }
+
+/* Add / edit a subject */
+.subject-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 18px;
+    background: var(--card-glass);
+    border: 1px solid var(--glass-edge-soft);
+}
+.subject-form label { display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; font-weight: 700; color: var(--ink-soft); }
+.subject-form input,
+.move-select {
+    border: 1px solid var(--line-strong);
+    background: var(--surface-solid);
+    color: var(--ink);
+    font: inherit;
+}
+.subject-form input { min-height: 44px; padding: 8px 12px; border-radius: 12px; font-size: 0.95rem; }
+.form-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.form-row label { width: 150px; }
+.form-row .grow { flex: 1; min-width: 200px; width: auto; }
+.optional { font-weight: 600; opacity: 0.8; }
+.form-error { font-size: 0.86rem; font-weight: 700; color: var(--rose); }
+.form-buttons { display: flex; gap: 8px; }
+
+/* Inside a subject */
+.subject-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.subject-actions .icon-btn:first-of-type { margin-left: auto; }
+.shelf-section h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 1rem; }
+.shelf-section h3 i { color: var(--accent-text); }
+.shelf-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.shelf-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--card-glass);
+    border: 1px solid var(--glass-edge-soft);
+    color: var(--ink);
+    text-align: left;
+    transition: border-color var(--fast);
+}
+button.shelf-row:hover,
+button.shelf-row:focus-visible { border-color: var(--accent); }
+.row-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+}
+.row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-text strong { font-size: 0.95rem; overflow-wrap: anywhere; }
+.row-text span { overflow: hidden; font-size: 0.82rem; color: var(--ink-soft); white-space: nowrap; text-overflow: ellipsis; }
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.row-actions .btn { min-height: 36px; padding: 6px 12px; font-size: 0.84rem; }
+.row-actions .icon-btn { width: 36px; height: 36px; }
+.move-select { min-height: 36px; max-width: 150px; padding: 4px 8px; border-radius: 10px; font-size: 0.8rem; }
+.row-date { flex: none; font-size: 0.78rem; font-weight: 700; color: var(--ink-soft); }
+.row-go { color: var(--ink-soft); }
+
+/* Writing a note */
+.note-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.note-title-input {
+    padding: 8px 4px;
+    border: 0;
+    border-bottom: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+.note-title-input:focus { outline: none; border-color: var(--accent); }
+.note-toolbar { display: flex; align-items: center; gap: 10px; }
+.note-status { margin-left: auto; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); }
+.note-body-input,
+.note-read {
+    flex: 1;
+    min-height: 300px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-solid);
+    color: var(--ink);
+    font-size: 1rem;
+    line-height: 1.7;
+}
+.note-body-input { resize: none; font-family: inherit; }
+.note-read { overflow-y: auto; }
+.note-body-input[hidden],
+.note-read[hidden] { display: none; }
+
+@media (max-width: 767px) {
+    .row-actions { width: 100%; }
+    .shelf-row:not(button) { flex-wrap: wrap; }
+}
+
+/* Headings inside Ollie's answers and notes ("## Key points") */
+.md-heading {
+    display: block;
+    margin: 14px 0 4px;
+    font-family: var(--font-display);
+    font-size: 1.06em;
+    font-weight: 600;
+    color: var(--accent-text);
+}
+.md-heading:first-child { margin-top: 0; }

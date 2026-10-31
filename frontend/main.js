@@ -355,6 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roomOllieBtn.setAttribute('aria-label', open ? 'Pet Ollie' : 'Talk to Ollie');
         if (open) {
             if (isTasksOpen()) setTasks(false, { quiet: true });
+            if (isShelfOpen()) setShelf(false, { quiet: true });
             agentMessages.scrollTop = agentMessages.scrollHeight;
             agentInput.focus();
         } else {
@@ -373,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         openTasksBtn.setAttribute('aria-expanded', String(open));
         if (open) {
             if (isChatOpen()) setChat(false);
+            if (isShelfOpen()) setShelf(false, { quiet: true });
             const card = focusTask && cardsContainer.querySelector(`.extraction-col[data-id="${focusTask}"]`);
             if (card) {
                 card.scrollIntoView({ block: 'center' });
@@ -388,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openTasksBtn.addEventListener('click', () => setTasks(true));
     document.getElementById('close-tasks').addEventListener('click', () => setTasks(false));
     tasksBackdrop.addEventListener('click', () => setTasks(false));
-    document.getElementById('peek-upload').addEventListener('click', () => fileInput.click());
+    document.getElementById('peek-upload').addEventListener('click', () => { uploadSubjectId = null; fileInput.click(); });
 
     // The small task list in the room: open tasks, overdue and soonest first
     const peekList = document.getElementById('peek-list');
@@ -451,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setPop(name);   // closes it
             document.querySelector(`.dock-btn[data-pop="${name}"]`).focus();
         }
+        else if (isShelfOpen()) setShelf(false);
         else if (isTasksOpen()) setTasks(false);
         else if (isChatOpen()) setChat(false);
     });
@@ -460,9 +463,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const noteBody = document.getElementById('note-body');
     let noteText = '';
 
-    function openNote(question, answer, sources) {
+    // heading: a line instead of "You asked..."; saveTo: { subjectId, title } shows "Save to my notes"
+    let noteSaveTarget = null;
+    const saveSummaryBtn = document.getElementById('save-summary-note');
+    function openNote(question, answer, sources, { heading = '', saveTo = null } = {}) {
         noteText = answer;
-        document.getElementById('note-question').textContent = question ? `You asked: ${question}` : '';
+        noteSaveTarget = saveTo;
+        saveSummaryBtn.hidden = !saveTo;
+        saveSummaryBtn.disabled = false;
+        document.getElementById('note-question').textContent = heading || (question ? `You asked: ${question}` : '');
         noteBody.innerHTML = formatChatText(answer);
         document.getElementById('note-sources').innerHTML = sources && sources.length ? sourcesHtml(sources) : '';
         noteModal.classList.add('active');
@@ -470,9 +479,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function closeNote() {
         noteModal.classList.remove('active');
-        (isChatOpen() ? agentInput : roomOllieBtn).focus();
+        (isChatOpen() ? agentInput : isShelfOpen() ? shelfBody.querySelector('.summary-btn') || shelfBody : roomOllieBtn).focus();
     }
     document.getElementById('close-note').addEventListener('click', closeNote);
+    saveSummaryBtn.addEventListener('click', async () => {
+        if (!noteSaveTarget) return;
+        saveSummaryBtn.disabled = true;
+        try {
+            const response = await fetch(`${API}/api/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject_id: noteSaveTarget.subjectId, title: noteSaveTarget.title, body: noteText }),
+            });
+            if (!response.ok) throw new Error();
+            saveSummaryBtn.hidden = true;
+            showToast('Saved to your notes!');
+            if (isShelfOpen() && shelfView.view === 'subject') openSubject(shelfView.subjectId);
+        } catch (e) {
+            saveSummaryBtn.disabled = false;
+            showToast("Couldn't save the note. Is the backend running?");
+        }
+    });
     noteModal.addEventListener('click', (e) => { if (e.target === noteModal) closeNote(); });
     document.getElementById('copy-note').addEventListener('click', async () => {
         try {
@@ -608,6 +635,10 @@ document.addEventListener('DOMContentLoaded', () => {
             timeMode.dispatchEvent(new Event('change'));
             setOllie('happy', 1.2);
         },
+        // Bookshelf: your subject folders
+        bookshelf() {
+            setShelf(true);
+        },
         // Drawer: your lecture notes
         drawer() {
             roomSay('Here are the notes I have read.');
@@ -626,6 +657,421 @@ document.addEventListener('DOMContentLoaded', () => {
     roomOllieBtn.addEventListener('click', () => {
         if (isChatOpen()) petOllie(roomOllie);
         else setChat(true);
+    });
+
+    // ---------- Bookshelf: one folder per subject ----------
+    // Shelf (all subjects) -> one subject (its lecture PDFs, assignments, your notes) -> one note (editor)
+    const shelfPanel = document.getElementById('shelf-panel');
+    const shelfBackdrop = document.getElementById('shelf-backdrop');
+    const shelfBody = document.getElementById('shelf-body');
+    const shelfTitle = document.getElementById('shelf-title');
+    const shelfHint = document.getElementById('shelf-hint');
+    const shelfBack = document.getElementById('shelf-back');
+    const shelfBtn = document.getElementById('shelf-btn');
+    const isShelfOpen = () => !shelfPanel.hidden;
+    let shelfView = { view: 'shelf', subjectId: null, noteId: null };
+    let shelfOpener = null;
+    let subjectList = [];   // for the "Move to" menus
+    let uploadSubjectId = null;   // the folder a PDF upload goes into (null = by its course code)
+
+    function setShelf(open, { quiet = false } = {}) {
+        if (!open) flushNoteSave();
+        shelfPanel.hidden = !open;
+        shelfBackdrop.hidden = !open;
+        shelfBtn.setAttribute('aria-expanded', String(open));
+        if (open) {
+            if (isChatOpen()) setChat(false);
+            if (isTasksOpen()) setTasks(false, { quiet: true });
+            shelfOpener = document.activeElement;
+            showShelf();
+            document.getElementById('close-shelf').focus();
+        } else if (!quiet) {
+            (shelfOpener && shelfOpener.isConnected ? shelfOpener : shelfBtn).focus();
+        }
+    }
+    shelfBtn.addEventListener('click', () => setShelf(!isShelfOpen()));
+    document.getElementById('close-shelf').addEventListener('click', () => setShelf(false));
+    shelfBackdrop.addEventListener('click', () => setShelf(false));
+    shelfBack.addEventListener('click', () => {
+        if (shelfView.view === 'note') openSubject(shelfView.subjectId);
+        else showShelf();
+    });
+
+    async function api(path, options = {}) {
+        const response = await fetch(`${API}${path}`, {
+            ...options,
+            headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || `Something went wrong (${response.status}).`);
+        return data;
+    }
+
+    function setShelfHead(title, hint, canGoBack) {
+        shelfTitle.textContent = title;
+        shelfHint.textContent = hint;
+        shelfBack.hidden = !canGoBack;
+    }
+
+    const subjectLabel = (s) => s ? [s.code, s.name].filter(Boolean).join(' ') : 'Other';
+    // Each subject gets its own colour, worked out from its name so it never changes
+    function subjectHue(text) {
+        let hash = 0;
+        for (const ch of text) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
+        return hash;
+    }
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const countsText = (c) => [plural(c.documents, 'PDF'), plural(c.tasks, 'task'), plural(c.notes, 'note')].join(' · ');
+
+    // 1. The shelf: every subject folder
+    async function showShelf() {
+        await flushNoteSave();
+        shelfView = { view: 'shelf', subjectId: null, noteId: null };
+        setShelfHead('Bookshelf', 'One folder per subject: lecture notes, assignments and your own notes.', false);
+        shelfBody.innerHTML = '<p class="shelf-loading">Loading your subjects...</p>';
+        try {
+            const [list, other] = await Promise.all([api('/api/subjects'), api('/api/subjects/other')]);
+            subjectList = list;
+            const otherHasThings = other.documents + other.tasks + other.notes > 0;
+            shelfBody.innerHTML = `
+                <div class="shelf-grid">
+                    ${list.map(s => `
+                        <button class="subject-card" data-subject="${s.id}" style="--hue: ${subjectHue(subjectLabel(s))}">
+                            <span class="subject-code">${escapeHtml(s.code || 'No code')}</span>
+                            <strong>${escapeHtml(s.name)}</strong>
+                            <span class="subject-counts">${countsText(s)}</span>
+                        </button>`).join('')}
+                    ${otherHasThings ? `
+                        <button class="subject-card is-other" data-subject="other" style="--hue: 220">
+                            <span class="subject-code">Other</span>
+                            <strong>Not in a subject</strong>
+                            <span class="subject-counts">${countsText(other)}</span>
+                        </button>` : ''}
+                    <button class="subject-card is-new" id="new-subject-btn">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        <strong>New subject</strong>
+                    </button>
+                </div>
+                ${list.length ? '' : '<p class="shelf-empty">No subjects yet. Upload a PDF and its course gets a folder by itself, or add one here.</p>'}`;
+        } catch (error) {
+            shelfBody.innerHTML = `<p class="shelf-empty">Couldn't load your subjects. Is the backend running? (${escapeHtml(error.message)})</p>`;
+        }
+    }
+
+    // The add / edit subject form
+    function subjectForm(subject) {
+        return `
+            <form class="subject-form" id="subject-form">
+                <div class="form-row">
+                    <label>Course code <input name="code" placeholder="BMCS1113" maxlength="12" value="${escapeHtml(subject?.code || '')}"></label>
+                    <label class="grow">Name <input name="name" placeholder="Computer Organisation and Architecture" required value="${escapeHtml(subject?.name || '')}"></label>
+                </div>
+                <label>Lecturer <span class="optional">(optional)</span> <input name="lecturer" placeholder="Dr. Tan" value="${escapeHtml(subject?.lecturer || '')}"></label>
+                <p class="form-error" id="subject-form-error" role="alert" hidden></p>
+                <div class="form-buttons">
+                    <button type="submit" class="btn btn-primary">${subject ? 'Save' : 'Add subject'}</button>
+                    <button type="button" class="btn btn-soft" id="cancel-subject-form">Cancel</button>
+                </div>
+            </form>`;
+    }
+    function showSubjectForm(subject) {
+        const holder = document.createElement('div');
+        holder.innerHTML = subjectForm(subject);
+        const form = holder.firstElementChild;
+        shelfBody.prepend(form);
+        form.querySelector(subject ? 'input[name="name"]' : 'input[name="code"]').focus();
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(form));
+            try {
+                const saved = await api(subject ? `/api/subjects/${subject.id}` : '/api/subjects',
+                    { method: subject ? 'PATCH' : 'POST', body: JSON.stringify(data) });
+                showToast(subject ? 'Subject updated.' : 'Subject added!');
+                openSubject(saved.id);
+            } catch (error) {
+                const box = form.querySelector('#subject-form-error');
+                box.textContent = error.message;
+                box.hidden = false;
+            }
+        });
+        form.querySelector('#cancel-subject-form').addEventListener('click', () => form.remove());
+    }
+
+    // 2. One subject: its lecture PDFs, assignments and notes
+    let openSubjectData = null;
+    async function openSubject(subjectId) {
+        await flushNoteSave();
+        shelfView = { view: 'subject', subjectId, noteId: null };
+        shelfBody.innerHTML = '<p class="shelf-loading">Opening the folder...</p>';
+        try {
+            const [data] = await Promise.all([
+                api(`/api/subjects/${subjectId}/contents`),
+                subjectList.length ? null : api('/api/subjects').then(list => { subjectList = list; }),
+            ]);
+            openSubjectData = data;
+            const s = data.subject;
+            setShelfHead(s ? (s.code || s.name) : 'Other', s ? `${s.name}${s.lecturer ? ` · ${s.lecturer}` : ''}` : 'Things that are not in a subject yet', true);
+            shelfBody.innerHTML = `
+                <div class="subject-actions">
+                    <button class="btn btn-primary" id="subject-upload"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Upload PDF</button>
+                    <button class="btn btn-soft" id="subject-new-note"><i class="fa-solid fa-pen" aria-hidden="true"></i> New note</button>
+                    ${s ? `
+                        <button class="icon-btn" id="subject-edit" aria-label="Edit this subject" title="Edit subject"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>
+                        <button class="icon-btn" id="subject-delete" aria-label="Remove this subject" title="Remove subject"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ''}
+                </div>
+
+                <section class="shelf-section" aria-labelledby="sec-lectures">
+                    <h3 id="sec-lectures"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Lecture notes <span class="count-pill">${data.documents.length || ''}</span></h3>
+                    ${data.documents.length ? `<ul class="shelf-list">${data.documents.map(docRow).join('')}</ul>`
+                        : '<p class="shelf-empty">No lecture PDFs yet. Upload one and Ollie can summarise it and answer questions about it.</p>'}
+                </section>
+
+                <section class="shelf-section" aria-labelledby="sec-notes">
+                    <h3 id="sec-notes"><i class="fa-regular fa-note-sticky" aria-hidden="true"></i> My notes <span class="count-pill">${data.notes.length || ''}</span></h3>
+                    ${data.notes.length ? `<ul class="shelf-list">${data.notes.map(noteRow).join('')}</ul>`
+                        : '<p class="shelf-empty">No notes yet. Write your own, or save a chapter summary here.</p>'}
+                </section>
+
+                <section class="shelf-section" aria-labelledby="sec-tasks">
+                    <h3 id="sec-tasks"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Assignments <span class="count-pill">${data.tasks.length || ''}</span></h3>
+                    ${data.tasks.length ? `<ul class="shelf-list">${data.tasks.map(taskRow).join('')}</ul>`
+                        : '<p class="shelf-empty">No assignments for this subject.</p>'}
+                </section>`;
+            if (s) {
+                document.getElementById('subject-edit').addEventListener('click', () => showSubjectForm(s));
+                document.getElementById('subject-delete').addEventListener('click', async () => {
+                    if (!confirm(`Remove the ${subjectLabel(s)} folder? Its PDFs, tasks and notes are kept and move to "Other".`)) return;
+                    try {
+                        await api(`/api/subjects/${s.id}`, { method: 'DELETE' });
+                        subjectList = [];
+                        showToast('Folder removed. Its things moved to Other.');
+                        showShelf();
+                    } catch (error) { showToast(error.message); }
+                });
+            }
+            document.getElementById('subject-upload').addEventListener('click', () => {
+                uploadSubjectId = s ? s.id : null;
+                fileInput.click();
+            });
+            document.getElementById('subject-new-note').addEventListener('click', () => newNote(s ? s.id : null));
+        } catch (error) {
+            shelfBody.innerHTML = `<p class="shelf-empty">Couldn't open this folder. (${escapeHtml(error.message)})</p>`;
+        }
+    }
+
+    function moveMenu(doc) {
+        const current = shelfView.subjectId === 'other' ? '' : String(shelfView.subjectId);
+        const options = subjectList.map(s =>
+            `<option value="${s.id}" ${String(s.id) === current ? 'selected' : ''}>${escapeHtml(subjectLabel(s))}</option>`).join('');
+        return `<label class="visually-hidden" for="move-${doc.id}">Move ${escapeHtml(doc.title)} to</label>
+            <select class="move-select" id="move-${doc.id}" data-doc="${doc.id}" title="Move to another subject">
+                <option value="" ${current ? '' : 'selected'}>Other</option>${options}
+            </select>`;
+    }
+    function docRow(doc) {
+        return `<li class="shelf-row">
+            <span class="row-icon"><i class="fa-regular fa-file-pdf" aria-hidden="true"></i></span>
+            <div class="row-text">
+                <strong>${escapeHtml(doc.title)}</strong>
+                <span>${doc.pages ? `${doc.pages} pages` : 'PDF'}${doc.has_summary ? ' · summary saved' : ''}</span>
+            </div>
+            <div class="row-actions">
+                ${doc.has_text ? `
+                    <button class="btn btn-soft summary-btn" data-doc="${doc.id}" data-title="${escapeHtml(doc.title)}" data-pages="${doc.pages || ''}">
+                        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${doc.has_summary ? 'Summary' : 'Summarise'}
+                    </button>
+                    <button class="icon-btn doc-chat-btn" data-doc="${doc.id}" aria-label="Chat about ${escapeHtml(doc.title)}" title="Ask about this PDF"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i></button>` : ''}
+                ${moveMenu(doc)}
+            </div>
+        </li>`;
+    }
+    function noteRow(note) {
+        const when = new Date(note.updated_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+        return `<li>
+            <button class="shelf-row note-row" data-note="${note.id}">
+                <span class="row-icon"><i class="fa-regular fa-note-sticky" aria-hidden="true"></i></span>
+                <span class="row-text">
+                    <strong>${escapeHtml(note.title)}</strong>
+                    <span>${escapeHtml(note.preview || 'Empty note')}</span>
+                </span>
+                <span class="row-date">${when}</span>
+            </button>
+        </li>`;
+    }
+    function taskRow(task) {
+        const due = task.is_done ? 'done' : task.deadline ? daysLeftText(task.deadline) : 'no deadline';
+        return `<li>
+            <button class="shelf-row task-row" data-task="${task.id}">
+                <span class="row-icon"><i class="fa-${task.is_done ? 'solid fa-circle-check' : 'regular fa-circle'}" aria-hidden="true"></i></span>
+                <span class="row-text">
+                    <strong>${escapeHtml(task.title)}</strong>
+                    <span class="${due === 'overdue' ? 'red-text' : ''}">${escapeHtml(due)}</span>
+                </span>
+                <i class="fa-solid fa-chevron-right row-go" aria-hidden="true"></i>
+            </button>
+        </li>`;
+    }
+
+    // Clicks inside the bookshelf
+    shelfBody.addEventListener('click', (e) => {
+        const card = e.target.closest('.subject-card');
+        if (card) {
+            if (card.id === 'new-subject-btn') showSubjectForm(null);
+            else openSubject(card.dataset.subject);
+            return;
+        }
+        const summaryBtn = e.target.closest('.summary-btn');
+        if (summaryBtn) { summarise(summaryBtn); return; }
+        const chatButton = e.target.closest('.doc-chat-btn');
+        if (chatButton) { openDocChat(chatButton.dataset.doc); return; }
+        const noteButton = e.target.closest('.note-row');
+        if (noteButton) { openNoteEditor(Number(noteButton.dataset.note)); return; }
+        const taskButton = e.target.closest('.task-row');
+        if (taskButton) { setTasks(true, { focusTask: taskButton.dataset.task }); return; }
+    });
+    shelfBody.addEventListener('change', async (e) => {
+        const select = e.target.closest('.move-select');
+        if (!select) return;
+        try {
+            await api(`/api/documents/${select.dataset.doc}/subject`, {
+                method: 'PUT', body: JSON.stringify({ subject_id: select.value ? Number(select.value) : null }),
+            });
+            showToast('Moved.');
+            openSubject(shelfView.subjectId);
+        } catch (error) { showToast(error.message); }
+    });
+
+    // Chapter summary: shown in Ollie's note, with a button to keep it in your notes
+    async function summarise(button) {
+        const { doc, title } = button.dataset;
+        const pages = Number(button.dataset.pages) || 0;
+        let range = null;
+        // Very long PDFs (more than one chapter) are summarised a part at a time
+        if (pages > 60) {
+            range = prompt(`"${title}" has ${pages} pages. Which pages should Ollie summarise? (for example 1-20)`, '1-20');
+            if (!range) return;
+        }
+        const original = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Reading...';
+        setOllie('thinking');
+        try {
+            const result = await api(`/api/documents/${doc}/summary${range ? `?pages=${encodeURIComponent(range)}` : ''}`, { method: 'POST' });
+            setOllie('happy', 1.6);
+            const heading = `Summary of "${result.title}"${result.pages ? `, pages ${result.pages}` : ''}`;
+            openNote('', result.summary, [], {
+                heading,
+                saveTo: { subjectId: shelfView.subjectId === 'other' ? null : Number(shelfView.subjectId), title: `Summary: ${result.title}${result.pages ? ` (p.${result.pages})` : ''}` },
+            });
+            if (!result.pages && !result.saved) openSubject(shelfView.subjectId);   // shows "summary saved"
+        } catch (error) {
+            setOllie('oops', 1.5);
+            showToast(error.message, 5);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = original;
+        }
+    }
+
+    // 3. One note: write and it saves by itself
+    let noteSaveTimer = null;
+    let pendingNoteSave = null;   // the save waiting to happen, so leaving the editor never loses text
+
+    async function newNote(subjectId) {
+        try {
+            const note = await api('/api/notes', { method: 'POST', body: JSON.stringify({ subject_id: subjectId, title: 'Untitled note', body: '' }) });
+            openNoteEditor(note.id, { fresh: true });
+        } catch (error) { showToast(error.message); }
+    }
+
+    async function openNoteEditor(noteId, { fresh = false } = {}) {
+        await flushNoteSave();
+        let note;
+        try {
+            note = await api(`/api/notes/${noteId}`);
+        } catch (error) { showToast(error.message); return; }
+        const subjectId = note.subject_id ?? 'other';
+        shelfView = { view: 'note', subjectId, noteId };
+        const subject = subjectList.find(s => s.id === note.subject_id);
+        setShelfHead('My note', subject ? subjectLabel(subject) : 'Other', true);
+        shelfBody.innerHTML = `
+            <div class="note-editor">
+                <label class="visually-hidden" for="note-title-input">Title</label>
+                <input class="note-title-input" id="note-title-input" value="${escapeHtml(note.title)}" placeholder="Title">
+                <div class="note-toolbar">
+                    <div class="mode-switch" role="group" aria-label="Write or read">
+                        <button class="mode-btn" data-note-mode="write" aria-pressed="true"><i class="fa-solid fa-pen" aria-hidden="true"></i> Write</button>
+                        <button class="mode-btn" data-note-mode="read" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i> Read</button>
+                    </div>
+                    <span class="note-status" id="note-status" aria-live="polite">Saved</span>
+                    <button class="icon-btn" id="delete-note" aria-label="Delete this note" title="Delete note"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
+                </div>
+                <label class="visually-hidden" for="note-body-input">Note</label>
+                <textarea class="note-body-input" id="note-body-input" placeholder="Write anything... **bold**, - bullet points and \`code\` work too. It saves by itself.">${escapeHtml(note.body)}</textarea>
+                <div class="note-read message-bubble" id="note-read" hidden></div>
+            </div>`;
+        const titleInput = document.getElementById('note-title-input');
+        const bodyInput = document.getElementById('note-body-input');
+        const status = document.getElementById('note-status');
+        const read = document.getElementById('note-read');
+
+        const queueSave = () => {
+            status.textContent = 'Saving...';
+            clearTimeout(noteSaveTimer);
+            pendingNoteSave = { noteId, title: titleInput.value, body: bodyInput.value, status };
+            noteSaveTimer = setTimeout(() => flushNoteSave({ leaving: false }), 700);
+        };
+        titleInput.addEventListener('input', queueSave);
+        bodyInput.addEventListener('input', queueSave);
+
+        shelfBody.querySelectorAll('[data-note-mode]').forEach(btn => btn.addEventListener('click', () => {
+            const reading = btn.dataset.noteMode === 'read';
+            shelfBody.querySelectorAll('[data-note-mode]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+            read.innerHTML = bodyInput.value.trim() ? formatChatText(bodyInput.value) : '<p class="shelf-empty">Nothing written yet.</p>';
+            read.hidden = !reading;
+            bodyInput.hidden = reading;
+        }));
+        document.getElementById('delete-note').addEventListener('click', async () => {
+            if (!confirm(`Delete "${titleInput.value || 'this note'}"? This can't be undone.`)) return;
+            clearTimeout(noteSaveTimer);
+            pendingNoteSave = null;
+            try {
+                await api(`/api/notes/${noteId}`, { method: 'DELETE' });
+                showToast('Note deleted.');
+                openSubject(subjectId);
+            } catch (error) { showToast(error.message); }
+        });
+        // A note that was just made starts with its title selected, ready to type over
+        if (fresh) { titleInput.focus(); titleInput.select(); } else { bodyInput.focus(); }
+    }
+
+    // Saves what's waiting. When you leave a note you left empty, it's removed, so no blank notes pile up.
+    async function flushNoteSave({ leaving = true } = {}) {
+        clearTimeout(noteSaveTimer);
+        const job = pendingNoteSave;
+        pendingNoteSave = null;
+        const editorOpen = shelfView.view === 'note';
+        if (job) {
+            try {
+                await api(`/api/notes/${job.noteId}`, { method: 'PATCH', body: JSON.stringify({ title: job.title, body: job.body }) });
+                if (job.status.isConnected) job.status.textContent = 'Saved';
+            } catch (error) {
+                if (job.status.isConnected) job.status.textContent = "Couldn't save. Check the backend.";
+                return;
+            }
+        }
+        if (leaving && editorOpen) {
+            const title = document.getElementById('note-title-input');
+            const body = document.getElementById('note-body-input');
+            if (title && body && !body.value.trim() && ['', 'Untitled note'].includes(title.value.trim())) {
+                await api(`/api/notes/${shelfView.noteId}`, { method: 'DELETE' }).catch(() => {});
+            }
+        }
+    }
+
+    // Upload finished: refresh the open folder so the new PDF shows up
+    document.addEventListener('pdf-uploaded', () => {
+        if (isShelfOpen() && shelfView.view === 'subject') openSubject(shelfView.subjectId);
     });
 
     // ---------- Chill dock: lo-fi radio, cozy sounds, focus timer, quick notes ----------
@@ -1114,10 +1560,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // File Input Logic
     browseBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        uploadSubjectId = null;
         fileInput.click();
     });
 
-    document.getElementById('upload-btn').addEventListener('click', () => fileInput.click());
+    document.getElementById('upload-btn').addEventListener('click', () => { uploadSubjectId = null; fileInput.click(); });
 
     function preventDefaults(e) {
         e.preventDefault();
@@ -1137,7 +1584,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         target.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
     });
-    fileInput.addEventListener('change', function() { handleFiles(this.files); });
+    fileInput.addEventListener('change', function() {
+        handleFiles(this.files, uploadSubjectId);
+        uploadSubjectId = null;
+    });
 
     // Task and note actions (tick steps, done, edit, chat, delete), for the task list and the notes drawer
     [tasksPanel, document.getElementById('notes-drawer')].forEach(area => area.addEventListener('click', async (e) => {
@@ -1234,18 +1684,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Open Chat Modal
         const chatBtn = e.target.closest('.chat-btn');
-        if (chatBtn) {
-            currentChatTaskId = chatBtn.getAttribute('data-id');
-            chatModal.classList.add('active');
-            chatMessages.innerHTML = `
-                <div class="chat-message ai-message">
-                    <div class="message-bubble">Hello! Ask me any questions about this document.</div>
-                </div>
-            `;
-            chatInput.value = '';
-            setTimeout(() => chatInput.focus(), 300);
-        }
+        if (chatBtn) openDocChat(chatBtn.getAttribute('data-id'));
     }));
+
+    function openDocChat(taskId) {
+        currentChatTaskId = taskId;
+        chatModal.classList.add('active');
+        chatMessages.innerHTML = `
+            <div class="chat-message ai-message">
+                <div class="message-bubble">Hello! Ask me any questions about this document.</div>
+            </div>
+        `;
+        chatInput.value = '';
+        setTimeout(() => chatInput.focus(), 300);
+    }
 
     // Chat Modal Logic
     closeChatBtn.addEventListener('click', () => {
@@ -1298,6 +1750,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <thead><tr>${head.map(c => `<th>${c}</th>`).join('')}</tr></thead>
                         <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
                     </table></div>` });
+            } else if (/^\s*(\*\*)?\s*#{1,4}\s/.test(lines[i])) {
+                // A heading like "## Key points" (sometimes the AI also makes it bold)
+                const text = lines[i].replace(/^\s*(\*\*)?\s*#{1,4}\s+/, '').replace(/\s*(\*\*)?\s*$/, '');
+                pieces.push({ block: true, html: `<span class="md-heading">${formatInline(text)}</span>` });
             } else {
                 pieces.push({ block: false, html: formatInline(lines[i]).replace(/^\s*[*-]\s+/, '• ') });
             }
@@ -1401,6 +1857,10 @@ document.addEventListener('DOMContentLoaded', () => {
         edit_task: ['fa-pen', () => 'Prepared a change to a task'],
         remember_preference: ['fa-brain', () => 'Remembered something about you'],
         forget_preference: ['fa-eraser', () => 'Forgot something'],
+        list_subjects: ['fa-book', () => 'Looked through your subjects'],
+        summarise_document: ['fa-wand-magic-sparkles', () => 'Summarised a chapter'],
+        read_my_notes: ['fa-note-sticky', () => 'Read your notes'],
+        save_note: ['fa-floppy-disk', (a) => `Prepared a note${a.title ? `: ${a.title}` : ''}`],
     };
 
     function appendToolBadge(tool) {
@@ -1451,6 +1911,21 @@ document.addEventListener('DOMContentLoaded', () => {
             await updateTask(edit.task_id, edit.changes);
             showToast('Task updated!');
         });
+    }
+
+    // Same idea for a note in a subject folder
+    function appendPendingNoteCard(note) {
+        const preview = note.body.length > 160 ? `${note.body.slice(0, 160)}...` : note.body;
+        appendConfirmCard([['strong', note.title], ['span', `In: ${note.subject_label}`], ['span', preview]],
+            'Saved to your notes.', async () => {
+                const response = await fetch(`${API}/api/agent/save-note`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(note),
+                });
+                if (!response.ok) throw new Error('Could not save the note.');
+                showToast('Note saved!');
+            });
     }
 
     // A small card with Save / Cancel. onSave does the real saving.
@@ -1525,12 +2000,13 @@ document.addEventListener('DOMContentLoaded', () => {
             appendAgentMessage(formatChatText(data.answer));
             if (data.pending_task) appendPendingTaskCard(data.pending_task);
             if (data.pending_edit) appendPendingEditCard(data.pending_edit);
+            if (data.pending_note) appendPendingNoteCard(data.pending_note);
             if (data.sources && data.sources.length) appendSources(data.sources);
             if (data.tools_used.some(t => t.name.endsWith('_preference'))) loadMemory();
 
             // Ollie's mood: happy when it prepared something or learned about you,
             // "um, actually" when it explains something from your notes or a long answer
-            const didSomething = data.pending_task || data.pending_edit
+            const didSomething = data.pending_task || data.pending_edit || data.pending_note
                 || data.tools_used.some(t => t.name === 'remember_preference');
             const explained = data.tools_used.some(t => t.name === 'search_notes') || data.answer.length > 200;
             ollieSay(text, data.answer, {
@@ -1659,7 +2135,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleFiles(files) {
+    // subjectId: the folder to put it in; without one, it goes in the folder of its course code
+    async function handleFiles(files, subjectId = null) {
         if (files.length === 0) return;
         const file = files[0];
         
@@ -1685,6 +2162,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData();
         formData.append('file', file);
+        if (subjectId) formData.append('subject_id', subjectId);
+        if (isShelfOpen()) showToast('Ollie is reading your PDF...', 4);
 
         try {
             const response = await fetch(`${API}/api/parse-assignment`, {
@@ -1706,8 +2185,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Done! Ollie has read your PDF.');
             ollieSay('', `Done! I read "${file.name}". Ask me anything about it.`, { mood: 'happy' });
             await loadExistingTasks();
+            document.dispatchEvent(new Event('pdf-uploaded'));
 
         } catch (error) {
+            if (isShelfOpen()) showToast(`Ollie couldn't read that PDF. ${error.message}`, 6);
             console.error("Upload error:", error);
             ollieSay('', `I couldn't read that PDF. ${error.busy ? 'The AI is busy, so try again in a minute.' : error.message}`, { mood: 'oops' });
             // Show the problem right under the drop zone, and keep your tasks on screen

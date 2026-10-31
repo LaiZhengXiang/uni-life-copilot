@@ -1,18 +1,21 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Response
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import ai_service
 import agent
 import memory
 import models
 import rag
+import subjects
 import tasks
 from database import engine, SessionLocal
 
 # Create database tables automatically
 models.Base.metadata.create_all(bind=engine)
-models.add_missing_columns(engine)
+if models.add_missing_columns(engine):
+    # Subjects are new: put the PDFs and tasks you already had into their folders, once
+    print(f"[Subjects] Sorted {subjects.sort_old_documents()} saved document(s) into subject folders")
 
 app = FastAPI(
     title="Uni-Life Copilot API",
@@ -52,8 +55,12 @@ async def edit_task(task_id: int, changes: tasks.TaskUpdate):
     return tasks.update_task(task_id, changes)
 
 @app.post("/api/parse-assignment", response_model=List[ai_service.ParsedDocument])
-async def parse_assignment(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Endpoint to upload a PDF assignment, parse via AI, and save to database."""
+async def parse_assignment(file: UploadFile = File(...), subject_id: Optional[int] = Form(None),
+                           db: Session = Depends(get_db)):
+    """
+    Upload a PDF: the AI reads it and it's saved as tasks or lecture notes.
+    subject_id: the folder it was dropped into; without one, it goes in the folder of its course code.
+    """
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
     
@@ -78,7 +85,8 @@ async def parse_assignment(file: UploadFile = File(...), db: Session = Depends(g
                 key_concepts=item.key_concepts,
                 milestones=item.milestones,
                 urgency_score=item.urgency_score,
-                raw_text=item.raw_text  # Store the full extracted text for chat
+                raw_text=item.raw_text,  # Store the full extracted text for chat
+                subject_id=subject_id or subjects.subject_for_course(db, item.course_name),
             )
             db.add(db_task)
             saved.append(db_task)
@@ -166,3 +174,70 @@ async def forget_preference(preference_id: int):
 async def save_agent_task(task: agent.PendingTask):
     """The student clicked Save on a task the agent prepared, so now we really save it."""
     return agent.save_task(task)
+
+@app.post("/api/agent/save-note", response_model=subjects.NoteOut)
+async def save_agent_note(note: agent.PendingNote):
+    """The student clicked Save on a note the agent prepared."""
+    return subjects.create_note(subjects.NoteIn(subject_id=note.subject_id, title=note.title, body=note.body))
+
+
+# ---------- Subjects: one folder per course, with its PDFs, tasks and your notes ----------
+
+@app.get("/api/subjects", response_model=List[subjects.SubjectOut])
+async def get_subjects():
+    return subjects.list_subjects()
+
+@app.get("/api/subjects/other")
+async def get_other_counts():
+    """How much is in the "Other" folder (things with no subject)."""
+    return subjects.other_counts()
+
+@app.post("/api/subjects", response_model=subjects.SubjectOut)
+async def add_subject(data: subjects.SubjectIn):
+    return subjects.create_subject(data)
+
+@app.patch("/api/subjects/{subject_id}", response_model=subjects.SubjectOut)
+async def edit_subject(subject_id: int, changes: subjects.SubjectUpdate):
+    return subjects.update_subject(subject_id, changes)
+
+@app.delete("/api/subjects/{subject_id}")
+async def remove_subject(subject_id: int):
+    """Removes the folder; its PDFs, tasks and notes move to Other (nothing is lost)."""
+    return subjects.delete_subject(subject_id)
+
+@app.get("/api/subjects/{subject_id}/contents", response_model=subjects.SubjectDetail)
+async def get_subject_contents(subject_id: str):
+    """Everything in one folder. Use "other" for the things with no subject."""
+    if subject_id == "other":
+        return subjects.subject_detail(None)
+    if not subject_id.isdigit():
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return subjects.subject_detail(int(subject_id))
+
+@app.put("/api/documents/{document_id}/subject", response_model=subjects.DocumentBrief)
+async def move_document(document_id: int, req: subjects.MoveRequest):
+    """Moves a PDF or task to another subject folder."""
+    return subjects.move_document(document_id, req.subject_id)
+
+@app.post("/api/documents/{document_id}/summary", response_model=subjects.SummaryOut)
+async def summarise_document(document_id: int, pages: Optional[str] = None, refresh: bool = False):
+    """A revision summary of a lecture PDF. pages like "3-10" summarises only those pages."""
+    return subjects.summarise_document(document_id, pages, refresh)
+
+# ---------- Your own notes ----------
+
+@app.post("/api/notes", response_model=subjects.NoteOut)
+async def add_note(data: subjects.NoteIn):
+    return subjects.create_note(data)
+
+@app.get("/api/notes/{note_id}", response_model=subjects.NoteOut)
+async def read_note(note_id: int):
+    return subjects.get_note(note_id)
+
+@app.patch("/api/notes/{note_id}", response_model=subjects.NoteOut)
+async def edit_note(note_id: int, changes: subjects.NoteUpdate):
+    return subjects.update_note(note_id, changes)
+
+@app.delete("/api/notes/{note_id}")
+async def remove_note(note_id: int):
+    return subjects.delete_note(note_id)

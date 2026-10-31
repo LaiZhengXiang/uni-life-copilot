@@ -11,6 +11,9 @@ add_task does NOT save by itself: it only prepares the task, and the student cli
 
 Week 3, MEMORY (see memory.py): every question also carries the last few messages of this chat,
 and the instructions list the student's saved preferences, so the agent "remembers".
+
+Week 5, SUBJECTS (see subjects.py): it can look through the student's subject folders,
+summarise a lecture chapter, read the student's own notes, and prepare a new note (Save to confirm, like tasks).
 """
 import json
 import os
@@ -24,6 +27,7 @@ import ai_service
 import memory
 import models
 import rag
+import subjects
 from database import SessionLocal
 from tasks import TaskUpdate, urgency_score
 
@@ -54,6 +58,14 @@ class PendingEdit(BaseModel):
     changes: dict  # only the fields that change, e.g. {"deadline": "2026-11-06T15:00:00"}
 
 
+class PendingNote(BaseModel):
+    """A note the agent wants to save in a subject folder. Only saved after the student clicks Save."""
+    subject_id: Optional[int] = None
+    subject_label: str = "Other"   # shown on the Save card, e.g. "BMCS1113 Computer Organisation"
+    title: str
+    body: str
+
+
 class Source(BaseModel):
     """A note the answer was based on, shown under the answer."""
     title: str
@@ -66,6 +78,7 @@ class AgentResponse(BaseModel):
     tools_used: List[ToolUse]  # shown in the UI so you can see the agent "doing" things
     pending_task: Optional[PendingTask] = None  # the UI shows a Save / Cancel card for it
     pending_edit: Optional[PendingEdit] = None  # same idea, for changing an existing task
+    pending_note: Optional[PendingNote] = None  # same idea, for saving a note in a subject folder
     sources: List[Source] = []  # notes found by search_notes, so you can check the answer yourself
 
 
@@ -175,6 +188,7 @@ def save_task(task: PendingTask) -> models.TaskRecord:
             key_concepts=[],
             milestones=[],
             urgency_score=urgency_score(task.deadline),
+            subject_id=subjects.subject_for_course(db, task.course_name),
         )
         db.add(record)
         db.commit()
@@ -182,6 +196,80 @@ def save_task(task: PendingTask) -> models.TaskRecord:
         return record
     finally:
         db.close()
+
+
+# ---------- Subject folder tools ----------
+
+def _find_subject(subject: Optional[str]):
+    """Finds a subject by its code or part of its name. Returns (subject or None, error or None)."""
+    if not subject or not subject.strip():
+        return None, None
+    wanted = subject.strip().lower()
+    folders = subjects.list_subjects()
+    for folder in folders:
+        if folder.code and folder.code.lower() == wanted.replace(" ", ""):
+            return folder, None
+    matches = [f for f in folders if wanted in f"{f.code} {f.name}".lower()]
+    if len(matches) == 1:
+        return matches[0], None
+    names = ", ".join(f"{f.code} {f.name}".strip() for f in folders) or "none yet"
+    return None, f"No single subject matches '{subject}'. The student's subjects: {names}"
+
+
+def _label(folder) -> str:
+    return f"{folder.code} {folder.name}".strip() if folder else "Other"
+
+
+def list_subjects() -> dict:
+    """The student's subject folders, with the lecture PDFs (document_id) and notes (note_id) inside."""
+    result = []
+    for folder in subjects.list_subjects():
+        detail = subjects.subject_detail(folder.id)
+        result.append({
+            "subject": _label(folder),
+            "lecturer": folder.lecturer or None,
+            "lecture_pdfs": [{"document_id": d.id, "title": d.title, "pages": d.pages} for d in detail.documents],
+            "assignments": [d.title for d in detail.tasks],
+            "my_notes": [{"note_id": n.id, "title": n.title} for n in detail.notes],
+        })
+    return {"subjects": result}
+
+
+def summarise_document(document_id: int, pages: Optional[str] = None) -> dict:
+    try:
+        done = subjects.summarise_document(int(document_id), pages)
+    except HTTPException as e:
+        return {"error": e.detail}
+    return {"title": done.title, "pages": done.pages, "summary": done.summary}
+
+
+def read_my_notes(subject: Optional[str] = None, note_id: Optional[int] = None) -> dict:
+    """One note in full (note_id), or the notes of a subject (or all notes) with a short preview."""
+    if note_id:
+        try:
+            note = subjects.get_note(int(note_id))
+        except HTTPException as e:
+            return {"error": e.detail}
+        return {"note_id": note.id, "title": note.title, "content": note.body[:6000]}
+    folder, error = _find_subject(subject)
+    if error:
+        return {"error": error}
+    folders = [folder] if folder else subjects.list_subjects()
+    notes = []
+    for f in folders:
+        for n in subjects.subject_detail(f.id).notes:
+            notes.append({"note_id": n.id, "subject": _label(f), "title": n.title, "preview": n.preview})
+    return {"notes": notes or "No notes yet."}
+
+
+def save_note(title: str, content: str, subject: Optional[str] = None) -> dict:
+    """Prepares a note for a subject folder. It is NOT saved until the student clicks Save."""
+    folder, error = _find_subject(subject)
+    if error:
+        return {"error": error}
+    note = PendingNote(subject_id=folder.id if folder else None, subject_label=_label(folder),
+                       title=title.strip() or "Untitled note", body=content)
+    return {"status": "waiting_for_student_to_click_save", "note": note.model_dump()}
 
 
 # Which Python function runs for each tool name the AI may ask for
@@ -192,6 +280,10 @@ TOOL_FUNCTIONS = {
     "search_notes": rag.search_notes,
     "remember_preference": memory.add_preference,
     "forget_preference": memory.delete_preference,
+    "list_subjects": list_subjects,
+    "summarise_document": summarise_document,
+    "read_my_notes": read_my_notes,
+    "save_note": save_note,
 }
 
 
@@ -333,6 +425,74 @@ TOOLS_MENU = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_subjects",
+            "description": (
+                "List the student's subject folders: each subject's lecture PDFs (with document_id and pages), "
+                "assignments and own notes (with note_id). Use it to find a document_id or note_id, "
+                "or when the student asks what they have for a subject."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarise_document",
+            "description": (
+                "Write a revision summary of one lecture PDF (usually one chapter): big idea, key points, "
+                "key terms, an example and likely exam questions. Call list_subjects first to get the document_id. "
+                "For a long PDF or one part of it, pass pages like '1-20'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "The document_id from list_subjects."},
+                    "pages": {"type": "string", "description": "Optional page range, e.g. '5-12'."},
+                },
+                "required": ["document_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_my_notes",
+            "description": (
+                "Read the notes the student wrote themselves. Without note_id it lists their notes "
+                "(optionally for one subject) with a preview; with note_id it returns that note in full."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "subject": {"type": "string", "description": "Optional course code or name, e.g. 'BMCS1113'."},
+                    "note_id": {"type": "integer", "description": "A note_id from list_subjects or an earlier list."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_note",
+            "description": (
+                "Save a note in one of the student's subject folders, e.g. a summary you wrote or study tips, "
+                "when the student asks you to save or keep something. It is not saved straight away: "
+                "the student sees a Save button and must click it."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "A short title, e.g. 'Chapter 3 summary'."},
+                    "content": {"type": "string", "description": "The full note, in Markdown."},
+                    "subject": {"type": "string", "description": "Course code or name of the folder, e.g. 'BMCS1113'."},
+                },
+                "required": ["title", "content"],
+            },
+        },
+    },
 ]
 
 
@@ -354,6 +514,11 @@ def _system_prompt() -> str:
         "If search_notes finds nothing useful, say 'Your notes don't cover this' and then explain from general "
         "knowledge, clearly marked as not from their notes. Never invent what the notes say. "
         "Questions that have nothing to do with their studies can be answered normally.\n"
+        "SUBJECTS: the student's PDFs and notes are kept in one folder per subject. To summarise a chapter, "
+        "use list_subjects to find the document_id, then summarise_document, and show the summary as it is "
+        "(you may add one short line before it). If the student wants to keep something, use save_note. "
+        "A note about a lecture must only use facts you read from it (search_notes or summarise_document first). "
+        "save_note does not save yet: say the note is ready and the student can click Save.\n"
         f"Calendar for the next 14 days (copy dates from here, never calculate them yourself):\n{upcoming}\n"
         "'This Friday' or 'next Friday' means the FIRST Friday in this list.\n"
         "Use your tools to look up the student's real data; never make up deadlines. "
@@ -470,6 +635,7 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
     tools_used = []
     pending_task = None
     pending_edit = None
+    pending_note = None
     sources = []
 
     # THE AGENT LOOP: ask -> run the tools it wants -> ask again ... until it answers in words
@@ -482,7 +648,8 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
         if not tool_calls:
             print(f"[Agent] Final answer after {round_number} round(s)")
             return AgentResponse(answer=reply.get("content") or "", tools_used=tools_used,
-                                 pending_task=pending_task, pending_edit=pending_edit, sources=sources)
+                                 pending_task=pending_task, pending_edit=pending_edit,
+                                 pending_note=pending_note, sources=sources)
 
         # Run each tool the AI asked for, and add the results to the conversation
         messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": tool_calls})
@@ -495,6 +662,8 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
                 pending_task = PendingTask(**result["task"])  # the UI will show Save / Cancel
             if name == "edit_task" and isinstance(result, dict) and "edit" in result:
                 pending_edit = PendingEdit(**result["edit"])
+            if name == "save_note" and isinstance(result, dict) and "note" in result:
+                pending_note = PendingNote(**result["note"])
             if name == "search_notes" and isinstance(result, dict):
                 for found in result.get("results", []):
                     source = Source(title=found["source"], course=found["course"], page=found["page"])
@@ -504,4 +673,5 @@ def _agent_loop(user_message: str, conversation_id: str) -> AgentResponse:
 
     # Not reached (the last round has no tools), but just in case
     return AgentResponse(answer="Sorry, I got stuck. Please ask again.", tools_used=tools_used,
-                         pending_task=pending_task, pending_edit=pending_edit, sources=sources)
+                         pending_task=pending_task, pending_edit=pending_edit,
+                         pending_note=pending_note, sources=sources)
