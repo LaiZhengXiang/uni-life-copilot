@@ -2127,6 +2127,7 @@ body.chat-open .speech.room-speech { display: none; }
 .tasks-backdrop[hidden],
 .tasks-panel[hidden],
 .shelf-panel[hidden],
+.week-panel[hidden],
 .ollie-corner[hidden] { display: none !important; }
 
 .tasks-backdrop {
@@ -2140,7 +2141,8 @@ body.chat-open .speech.room-speech { display: none; }
 
 /* Tasks and the bookshelf: a wide drawer from the left, roomy cards */
 .tasks-panel.panel,
-.shelf-panel.panel {
+.shelf-panel.panel,
+.week-panel.panel {
     position: fixed;
     top: 12px;
     left: 12px;
@@ -2256,7 +2258,8 @@ body.chat-open .speech.room-speech { display: none; }
     /* full screen and solid, so nothing behind shows through */
     .ollie-corner,
     .tasks-panel.panel,
-    .shelf-panel.panel {
+    .shelf-panel.panel,
+    .week-panel.panel {
         inset: 0;
         width: 100%;
         border-radius: 0;
@@ -2266,7 +2269,8 @@ body.chat-open .speech.room-speech { display: none; }
     }
     .ollie-corner { padding: 12px; }
     .tasks-panel.panel,
-    .shelf-panel.panel { padding: 16px; }
+    .shelf-panel.panel,
+    .week-panel.panel { padding: 16px; }
     .tasks-panel .cards-layout { grid-template-columns: minmax(0, 1fr); }
 }
 @media (orientation: portrait) {
@@ -2284,6 +2288,7 @@ body.chat-open .speech.room-speech { display: none; }
 @media (prefers-reduced-motion: reduce) {
     .tasks-panel.panel,
     .shelf-panel.panel,
+    .week-panel.panel,
     .ollie-corner,
     .tasks-backdrop,
     .room-hotspot,
@@ -2295,7 +2300,9 @@ body.chat-open .speech.room-speech { display: none; }
    Bookshelf: subject folders, their files and your own notes
    ========================================================= */
 .shelf-head { align-items: flex-start; gap: 10px; }
-#shelf-back[hidden] { display: none; }
+#shelf-back[hidden],
+#week-back[hidden],
+.new-course[hidden] { display: none; }
 .shelf-head .panel-title { flex: 1; min-width: 0; }
 .shelf-body {
     flex: 1;
@@ -2476,3 +2483,191 @@ button.shelf-row:focus-visible { border-color: var(--accent); }
     color: var(--accent-text);
 }
 .md-heading:first-child { margin-top: 0; }
+
+/* =========================================================
+   Calendar: the weekly timetable and your free time
+   ========================================================= */
+@media (min-width: 768px) {
+    .week-panel.panel { width: min(1000px, calc(100% - 24px)); }
+}
+
+.week-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 36px 20px;
+    border-radius: 18px;
+    border: 2px dashed var(--line-strong);
+    text-align: center;
+    color: var(--ink-soft);
+}
+.week-empty i { font-size: 2rem; color: var(--accent-text); }
+.week-empty strong { font-family: var(--font-display); font-size: 1.2rem; color: var(--ink); }
+.week-empty p { max-width: 46ch; line-height: 1.6; }
+
+/* The grid: a time column, then one column per day */
+.week-grid {
+    --hour: 52px;
+    display: grid;
+    grid-template-columns: 48px repeat(var(--cols), minmax(0, 1fr));
+    gap: 6px;
+}
+.week-col,
+.week-times { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.week-col-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    min-height: 44px;
+    padding: 6px 4px;
+    border-radius: 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-soft);
+}
+button.week-col-head:hover { border-color: var(--line-strong); }
+.week-col-head strong { font-size: 0.85rem; color: var(--ink); }
+.week-col-head span { font-size: 0.8rem; font-weight: 700; }
+.week-col.is-today .week-col-head strong,
+.week-col.is-today .week-col-head span { color: var(--accent-text); }
+.week-col-head.is-picked { background: var(--accent-soft); border-color: var(--accent); }
+.week-due {
+    flex-basis: 100%;
+    font-size: 0.7rem;
+    font-style: normal;
+    font-weight: 800;
+    color: var(--rose);
+    text-align: center;
+}
+.week-col-body {
+    position: relative;
+    height: calc(var(--hours) * var(--hour));
+    border-radius: 12px;
+    /* a faint line every hour */
+    background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px var(--hour));
+}
+.week-col .week-col-body { background-color: var(--card-glass); }
+.week-col.is-today .week-col-body { box-shadow: inset 0 0 0 1px var(--accent); }
+.week-times .week-col-body { background: none; }
+.week-times .week-col-body span {
+    position: absolute;
+    right: 4px;
+    transform: translateY(-50%);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+}
+.week-times .week-col-body span:first-child { transform: none; }
+
+.week-class {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 26px;
+    padding: 5px 7px;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 0;
+    border-left: 4px solid hsl(var(--hue) 62% 58%);
+    background: hsl(var(--hue) 55% 50% / 0.3);
+    color: var(--ink);
+    text-align: left;
+    transition: transform var(--fast), box-shadow var(--fast);
+}
+.week-class:hover,
+.week-class:focus-visible { transform: scale(1.02); box-shadow: var(--glass-shadow); z-index: 2; }
+.week-class strong { font-size: 0.8rem; line-height: 1.2; overflow-wrap: anywhere; }
+.week-class span { font-size: 0.72rem; line-height: 1.25; color: var(--ink-soft); }
+.week-free {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px dashed hsl(150 45% 55% / 0.55);
+    background: hsl(150 45% 50% / 0.08);
+}
+.week-free span { font-size: 0.72rem; font-weight: 700; color: hsl(150 40% 62%); }
+
+/* One day as a list */
+.week-day { display: flex; flex-direction: column; gap: 10px; }
+.week-day h3 { font-size: 1rem; }
+.day-chips { display: none; gap: 6px; }
+.day-chip {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+.day-chip.is-today { color: var(--accent-text); }
+.day-chip.is-picked { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.day-due { font-size: 0.88rem; font-weight: 700; color: var(--rose); }
+.row-time {
+    flex: none;
+    width: 58px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--ink-soft);
+}
+.day-class { border-left: 4px solid hsl(var(--hue) 62% 58%); }
+.day-free { border-style: dashed; background: hsl(150 45% 50% / 0.08); }
+.day-free strong { color: hsl(150 40% 62%); }
+
+/* Add or edit a class */
+.form-select { min-height: 44px; max-width: none; font-size: 0.95rem; }
+.subject-form input[type="time"] { min-width: 120px; }
+.danger-btn { margin-left: auto; color: var(--rose); }
+
+/* Checking the classes Ollie read from an upload */
+.draft-form { display: flex; flex-direction: column; gap: 14px; }
+.draft-list { display: flex; flex-direction: column; gap: 8px; }
+.draft-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 2fr) 108px 74px 128px 128px minmax(64px, 1fr) 40px;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 14px;
+    border: 1px solid var(--glass-edge-soft);
+    background: var(--card-glass);
+}
+.draft-row input {
+    min-width: 0;
+    min-height: 40px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-solid);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.88rem;
+}
+.draft-row .move-select { max-width: none; min-height: 40px; }
+.draft-row .icon-btn { width: 40px; height: 40px; }
+.draft-replace { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; }
+.draft-replace input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+@media (max-width: 767px) {
+    .week-grid { display: none; }
+    .day-chips { display: flex; }
+    .draft-row { grid-template-columns: 1fr 1fr 1fr; }
+    .draft-row input[name="course"] { grid-column: 1 / -1; }
+    .draft-row input[name="place"] { grid-column: span 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .week-class { transition: none; }
+}

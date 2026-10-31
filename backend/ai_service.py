@@ -1,3 +1,4 @@
+import base64
 import os
 import time
 import pymupdf  # Replaced fitz with modern pymupdf
@@ -120,12 +121,16 @@ def _ask_groq(prompt: str, want_json: bool, model: str, extra: dict) -> str:
         raise ProviderError(f"Groq answer had an unexpected shape: {e}")
 
 
-def _ask_gemini(prompt: str, json_schema: Optional[dict]) -> str:
+def _ask_gemini(prompt: str, json_schema: Optional[dict], image: Optional[tuple] = None) -> str:
+    """image: (picture bytes, type like "image/png"), for questions about a picture."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ProviderError("GEMINI_API_KEY is not set")
 
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    parts = [{"text": prompt}]
+    if image:
+        parts.insert(0, {"inline_data": {"mime_type": image[1], "data": base64.b64encode(image[0]).decode()}})
+    payload = {"contents": [{"parts": parts}]}
     if json_schema:
         payload["generationConfig"] = {
             "responseMimeType": "application/json",
@@ -171,6 +176,22 @@ def _ask_ai(prompt: str, read_answer: Callable[[str], object], gemini_schema: Op
         except (ValueError, TypeError) as e:  # json.JSONDecodeError and pydantic errors are ValueErrors
             print(f"[AI] {name} gave an answer we could not read: {e}")
 
+    raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
+
+
+def _ask_ai_about_image(prompt: str, image: tuple, read_answer: Callable[[str], object],
+                        gemini_schema: Optional[dict] = None):
+    """Like _ask_ai, for a picture. Only Gemini can see pictures here, so there is no fallback."""
+    if USE_FAKE_AI:
+        raise HTTPException(status_code=400, detail="Fake AI mode can't read pictures. Add your classes by hand.")
+    try:
+        result = read_answer(_ask_gemini(prompt, gemini_schema, image))
+        print("[AI] Picture read by Gemini")
+        return result
+    except ProviderError as e:
+        print(f"[AI] Gemini failed on a picture: {e}")
+    except (ValueError, TypeError) as e:
+        print(f"[AI] Gemini gave a picture answer we could not read: {e}")
     raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
 
 

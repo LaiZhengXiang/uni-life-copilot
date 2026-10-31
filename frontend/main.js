@@ -55,9 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadExistingTasks();
     }
 
-    // Calendar download: the file itself comes from the backend
-    document.getElementById('calendar-link').addEventListener('click', () => {
-        showToast('Downloaded! Open the file to add your deadlines to Google Calendar or your phone.');
+    // Calendar download (a button in the timetable): the file itself comes from the backend
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('a[href$="/api/calendar.ics"]')) {
+            showToast('Downloaded! Open the file to add your deadlines to Google Calendar or your phone.');
+        }
     });
 
     // Bell: what's due in the next 3 days
@@ -356,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (open) {
             if (isTasksOpen()) setTasks(false, { quiet: true });
             if (isShelfOpen()) setShelf(false, { quiet: true });
+            if (isWeekOpen()) setWeek(false, { quiet: true });
             agentMessages.scrollTop = agentMessages.scrollHeight;
             agentInput.focus();
         } else {
@@ -375,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (open) {
             if (isChatOpen()) setChat(false);
             if (isShelfOpen()) setShelf(false, { quiet: true });
+            if (isWeekOpen()) setWeek(false, { quiet: true });
             const card = focusTask && cardsContainer.querySelector(`.extraction-col[data-id="${focusTask}"]`);
             if (card) {
                 card.scrollIntoView({ block: 'center' });
@@ -454,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector(`.dock-btn[data-pop="${name}"]`).focus();
         }
         else if (isShelfOpen()) setShelf(false);
+        else if (isWeekOpen()) setWeek(false);
         else if (isTasksOpen()) setTasks(false);
         else if (isChatOpen()) setChat(false);
     });
@@ -604,23 +609,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (today.length) html += `Due today: ${list(today)}.<br>`;
             if (next.length) html += `Due tomorrow: ${list(next)}.`;
             roomSay(html);
+            // then add the next class today, once the timetable has loaded
+            api('/api/timetable').then(({ slots }) => {
+                const clock = now.toTimeString().slice(0, 5);
+                const later = slots.filter(c => c.day === todayIndex() && c.end > clock);
+                if (!later.length) return;
+                const c = later[0];
+                const when = c.start <= clock ? 'Now' : `Next class, ${niceTime(c.start)}`;
+                roomSay(`${html}<br>${when}: <strong>${escapeHtml(c.code)} ${escapeHtml(c.kind)}</strong>${c.place ? ` in ${escapeHtml(c.place)}` : ''}.`);
+            }).catch(() => {});
             setOllie(today.length ? 'explain' : 'happy', 1.6);
         },
-        // Calendar: this month's deadlines, and the calendar download
+        // Calendar: your timetable, free time and this week's deadlines
         calendar() {
-            const now = new Date();
-            const thisMonth = openDeadlines().filter(t => {
-                const d = new Date(t.deadline);
-                return d >= now && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-            });
-            const month = now.toLocaleDateString('en-MY', { month: 'long' });
-            roomSay((thisMonth.length
-                ? `<strong>Deadlines left in ${month}:</strong><ul>${thisMonth.slice(0, 6).map(t =>
-                    `<li><strong>${shortDate(t.deadline)}</strong> ${escapeHtml(t.title)}</li>`).join('')}</ul>`
-                : `<strong>No more deadlines in ${month}.</strong>`)
-                + `<a class="btn btn-primary" href="${API}/api/calendar.ics" download>
-                       <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Add to my phone calendar</a>`);
-            setOllie('explain', 1.6);
+            setWeek(true);
         },
         // Lamp: switch between a day and a night look, or back to the real time
         lamp() {
@@ -682,6 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (open) {
             if (isChatOpen()) setChat(false);
             if (isTasksOpen()) setTasks(false, { quiet: true });
+            if (isWeekOpen()) setWeek(false, { quiet: true });
             shelfOpener = document.activeElement;
             showShelf();
             document.getElementById('close-shelf').focus();
@@ -766,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label>Course code <input name="code" placeholder="BMCS1113" maxlength="12" value="${escapeHtml(subject?.code || '')}"></label>
                     <label class="grow">Name <input name="name" placeholder="Computer Organisation and Architecture" required value="${escapeHtml(subject?.name || '')}"></label>
                 </div>
-                <label>Lecturer <span class="optional">(optional)</span> <input name="lecturer" placeholder="Dr. Tan" value="${escapeHtml(subject?.lecturer || '')}"></label>
+                <label><span>Lecturer <span class="optional">(optional)</span></span> <input name="lecturer" placeholder="Dr. Tan" value="${escapeHtml(subject?.lecturer || '')}"></label>
                 <p class="form-error" id="subject-form-error" role="alert" hidden></p>
                 <div class="form-buttons">
                     <button type="submit" class="btn btn-primary">${subject ? 'Save' : 'Add subject'}</button>
@@ -1073,6 +1076,372 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('pdf-uploaded', () => {
         if (isShelfOpen() && shelfView.view === 'subject') openSubject(shelfView.subjectId);
     });
+
+    // ---------- Calendar: your weekly timetable and free time ----------
+    // Week (grid + one day's plan) -> add / edit a class, or check the classes Ollie read from an upload
+    const weekPanel = document.getElementById('week-panel');
+    const weekBackdrop = document.getElementById('week-backdrop');
+    const weekBody = document.getElementById('week-body');
+    const weekBtn = document.getElementById('week-btn');
+    const weekBack = document.getElementById('week-back');
+    const timetableFile = document.getElementById('timetable-file');
+    const isWeekOpen = () => !weekPanel.hidden;
+    const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const KINDS = ['Lecture', 'Tutorial', 'Practical', 'Other'];
+    const todayIndex = () => (new Date().getDay() + 6) % 7;   // Monday = 0
+    let weekData = null;          // { slots, free, day_start, day_end }
+    let weekDay = todayIndex();   // the day shown under the grid
+    let weekOpener = null;
+
+    function setWeek(open, { quiet = false } = {}) {
+        weekPanel.hidden = !open;
+        weekBackdrop.hidden = !open;
+        weekBtn.setAttribute('aria-expanded', String(open));
+        if (open) {
+            if (isChatOpen()) setChat(false);
+            if (isTasksOpen()) setTasks(false, { quiet: true });
+            if (isShelfOpen()) setShelf(false, { quiet: true });
+            weekOpener = document.activeElement;
+            weekDay = todayIndex();
+            showWeek();
+            document.getElementById('close-week').focus();
+        } else if (!quiet) {
+            (weekOpener && weekOpener.isConnected ? weekOpener : weekBtn).focus();
+        }
+    }
+    weekBtn.addEventListener('click', () => setWeek(!isWeekOpen()));
+    document.getElementById('close-week').addEventListener('click', () => setWeek(false));
+    weekBackdrop.addEventListener('click', () => setWeek(false));
+    weekBack.addEventListener('click', () => showWeek());
+
+    function setWeekHead(title, hint, canGoBack) {
+        document.getElementById('week-title').textContent = title;
+        document.getElementById('week-hint').textContent = hint;
+        weekBack.hidden = !canGoBack;
+    }
+
+    const classCount = (n) => `${n} ${n === 1 ? 'class' : 'classes'}`;
+    const toMinutes = (clock) => { const [h, m] = clock.split(':').map(Number); return h * 60 + m; };
+    // "14:30" -> "2:30pm"
+    function niceTime(clock) {
+        const [h, m] = clock.split(':').map(Number);
+        return `${h % 12 || 12}${m ? `:${String(m).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}`;
+    }
+    const howLong = (minutes) => minutes >= 60
+        ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}` : `${minutes}m`;
+
+    // The next date of each weekday (Monday first), counting today: the 7 days ahead, for the deadlines
+    function thisWeekDates() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return DAY_NAMES.map((_, i) => {
+            const date = new Date(today);
+            date.setDate(today.getDate() + (i - todayIndex() + 7) % 7);
+            return date;
+        });
+    }
+    function dueOn(date) {
+        return openDeadlines().filter(t => new Date(t.deadline).toDateString() === date.toDateString());
+    }
+
+    // 1. The week: a grid of classes and free time, then one day as a list
+    async function showWeek() {
+        setWeekHead('This week', `Your classes and free time. Free time counts from 8am to 10pm.`, false);
+        weekBody.innerHTML = '<p class="shelf-loading">Loading your timetable...</p>';
+        try {
+            weekData = await api('/api/timetable');
+        } catch (error) {
+            weekBody.innerHTML = `<p class="shelf-empty">Couldn't load your timetable. Is the backend running? (${escapeHtml(error.message)})</p>`;
+            return;
+        }
+        const { slots } = weekData;
+        const actions = `
+            <div class="subject-actions">
+                <button class="btn btn-primary" id="week-add"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add class</button>
+                <button class="btn btn-soft" id="week-upload"><i class="fa-regular fa-image" aria-hidden="true"></i> Upload timetable</button>
+                <a class="btn btn-soft" href="${API}/api/calendar.ics" download>
+                    <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> Deadlines to my phone</a>
+            </div>`;
+        if (!slots.length) {
+            weekBody.innerHTML = `${actions}
+                <div class="week-empty">
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                    <strong>No classes yet</strong>
+                    <p>Upload a picture or PDF of your timetable and Ollie will read it for you. You check it before anything is saved.
+                       Or add your classes one by one.</p>
+                </div>`;
+            return;
+        }
+        weekBody.innerHTML = `${actions}${weekGrid()}<section class="week-day" id="week-day"></section>`;
+        showDay(weekDay);
+    }
+
+    function weekGrid() {
+        const { slots, free } = weekData;
+        const dates = thisWeekDates();
+        // Monday to Friday always; the weekend only if you have classes then
+        const days = [0, 1, 2, 3, 4].concat([5, 6].filter(d => slots.some(s => s.day === d)));
+        // The grid runs from 8am (or earlier) to 6pm (or later), on whole hours
+        const first = Math.min(8 * 60, ...slots.map(s => Math.floor(toMinutes(s.start) / 60) * 60));
+        const last = Math.max(18 * 60, ...slots.map(s => Math.ceil(toMinutes(s.end) / 60) * 60));
+        const top = (clock) => ((Math.max(toMinutes(clock), first) - first) / (last - first)) * 100;
+        const height = (a, b) => top(b) - top(a);
+        const hours = [];
+        for (let m = first; m < last; m += 60) hours.push(m);
+
+        const columns = days.map(d => {
+            const due = dueOn(dates[d]);
+            const blocks = slots.filter(s => s.day === d).map(s => `
+                <button class="week-class" data-slot="${s.id}" style="--hue: ${subjectHue(s.label)}; top: ${top(s.start)}%; height: ${height(s.start, s.end)}%"
+                        aria-label="${escapeHtml(`${s.label} ${s.kind}, ${DAY_NAMES[d]} ${niceTime(s.start)} to ${niceTime(s.end)}${s.place ? `, ${s.place}` : ''}. Edit`)}">
+                    <strong>${escapeHtml(s.code)}</strong>
+                    <span>${escapeHtml(s.kind)}${s.place ? ` · ${escapeHtml(s.place)}` : ''}</span>
+                    <span>${niceTime(s.start)}-${niceTime(s.end)}</span>
+                </button>`).join('');
+            const gaps = free.filter(g => g.day === d && toMinutes(g.start) < last && g.minutes >= 60).map(g => `
+                <div class="week-free" style="top: ${top(g.start)}%; height: ${height(g.start, g.end > niceClock(last) ? niceClock(last) : g.end)}%" aria-hidden="true">
+                    <span>Free ${howLong(g.minutes)}</span>
+                </div>`).join('');
+            return `
+                <div class="week-col${d === todayIndex() ? ' is-today' : ''}">
+                    <button class="week-col-head${d === weekDay ? ' is-picked' : ''}" data-day="${d}" aria-pressed="${d === weekDay}">
+                        <strong>${DAY_NAMES[d].slice(0, 3)}</strong>
+                        <span>${dates[d].getDate()}</span>
+                        ${due.length ? `<em class="week-due" title="${escapeHtml(due.map(t => t.title).join(', '))}">${due.length} due</em>` : ''}
+                    </button>
+                    <div class="week-col-body">${gaps}${blocks}</div>
+                </div>`;
+        }).join('');
+
+        return `
+            <div class="week-grid" style="--cols: ${days.length}; --hours: ${hours.length}">
+                <div class="week-times" aria-hidden="true">
+                    <span class="week-col-head"></span>
+                    <div class="week-col-body">${hours.map(m => `<span style="top: ${top(niceClock(m))}%">${niceTime(niceClock(m))}</span>`).join('')}</div>
+                </div>
+                ${columns}
+            </div>`;
+    }
+    const niceClock = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+    // One day as a list: classes, free time and what's due, in time order
+    function showDay(day) {
+        weekDay = day;
+        weekBody.querySelectorAll('.week-col-head[data-day], .day-chip').forEach(b => {
+            const picked = Number(b.dataset.day) === day;
+            b.classList.toggle('is-picked', picked);
+            b.setAttribute('aria-pressed', String(picked));
+        });
+        const box = document.getElementById('week-day');
+        if (!box) return;
+        const date = thisWeekDates()[day];
+        const items = [
+            ...weekData.slots.filter(s => s.day === day).map(s => ({ at: s.start, html: `
+                <button class="shelf-row day-class" data-slot="${s.id}" style="--hue: ${subjectHue(s.label)}">
+                    <span class="row-time">${niceTime(s.start)}<br>${niceTime(s.end)}</span>
+                    <span class="row-text"><strong>${escapeHtml(s.label)}</strong>
+                        <span>${escapeHtml(s.kind)}${s.place ? ` · ${escapeHtml(s.place)}` : ''}</span></span>
+                    <i class="fa-solid fa-pen row-go" aria-hidden="true"></i>
+                </button>` })),
+            ...weekData.free.filter(g => g.day === day).map(g => ({ at: g.start, html: `
+                <div class="shelf-row day-free">
+                    <span class="row-time">${niceTime(g.start)}<br>${niceTime(g.end)}</span>
+                    <span class="row-text"><strong>Free · ${howLong(g.minutes)}</strong>
+                        <span>${g.minutes >= 90 ? 'Good for a study block' : 'Enough for a quick review'}</span></span>
+                </div>` })),
+        ].sort((a, b) => a.at.localeCompare(b.at));
+        const due = dueOn(date);
+        box.innerHTML = `
+            <div class="day-chips" role="group" aria-label="Pick a day">
+                ${DAY_NAMES.map((name, i) => `<button class="day-chip${i === day ? ' is-picked' : ''}${i === todayIndex() ? ' is-today' : ''}"
+                    data-day="${i}" aria-pressed="${i === day}" aria-label="${name}">${name.slice(0, 3)}</button>`).join('')}
+            </div>
+            <h3>${day === todayIndex() ? 'Today, ' : ''}${DAY_NAMES[day]} ${date.getDate()} ${date.toLocaleDateString('en-MY', { month: 'short' })}</h3>
+            ${due.length ? `<p class="day-due"><i class="fa-solid fa-flag" aria-hidden="true"></i> Due: ${due.map(t => escapeHtml(t.title)).join(', ')}</p>` : ''}
+            <div class="shelf-list">${items.map(i => i.html).join('') || '<p class="shelf-empty">No classes. The whole day is free.</p>'}</div>`;
+    }
+
+    weekBody.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+        if (target.id === 'week-add') return showClassForm(null, { day: weekDay });
+        if (target.id === 'week-upload') { timetableFile.click(); return; }
+        if (target.dataset.slot) return showClassForm(weekData.slots.find(s => s.id === Number(target.dataset.slot)));
+        if (target.dataset.day !== undefined) return showDay(Number(target.dataset.day));
+    });
+
+    // 2. Add or edit one class
+    async function showClassForm(slot, { day = 0 } = {}) {
+        if (!subjectList.length) subjectList = await api('/api/subjects').catch(() => []);
+        setWeekHead(slot ? 'Edit class' : 'Add a class', 'It repeats every week.', true);
+        const value = slot || { subject_id: null, kind: 'Lecture', day, start: '08:00', end: '10:00', place: '' };
+        const option = (v, label, picked) => `<option value="${v}"${picked ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+        weekBody.innerHTML = `
+            <form class="subject-form" id="class-form" novalidate>
+                <label>Subject
+                    <select name="subject_id" class="move-select form-select">
+                        ${subjectList.map(s => option(s.id, subjectLabel(s), s.id === value.subject_id)).join('')}
+                        ${option('new', 'A new subject...', !subjectList.length || (slot && !slot.subject_id))}
+                    </select>
+                </label>
+                <label class="new-course"${subjectList.length && !(slot && !slot.subject_id) ? ' hidden' : ''}>Course code and name
+                    <input name="course" placeholder="e.g. BMCS1113 Computer Organisation" value="${escapeHtml(slot && !slot.subject_id ? slot.label : '')}">
+                </label>
+                <div class="form-row">
+                    <label>Type
+                        <select name="kind" class="move-select form-select">${KINDS.map(k => option(k, k, k === value.kind)).join('')}</select>
+                    </label>
+                    <label>Day
+                        <select name="day" class="move-select form-select">${DAY_NAMES.map((d, i) => option(i, d, i === value.day)).join('')}</select>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <label>Starts <input type="time" name="start" value="${value.start}" required></label>
+                    <label>Ends <input type="time" name="end" value="${value.end}" required></label>
+                    <label class="grow"><span>Room <span class="optional">(optional)</span></span>
+                        <input name="place" placeholder="e.g. DK A" value="${escapeHtml(value.place || '')}"></label>
+                </div>
+                <p class="form-error" id="class-error" role="alert" hidden></p>
+                <div class="form-buttons">
+                    <button class="btn btn-primary" type="submit">${slot ? 'Save' : 'Add class'}</button>
+                    <button class="btn btn-soft" type="button" id="class-cancel">Cancel</button>
+                    ${slot ? `<button class="btn btn-soft danger-btn" type="button" id="class-delete">
+                        <i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button>` : ''}
+                </div>
+            </form>`;
+        const form = document.getElementById('class-form');
+        const newCourse = form.querySelector('.new-course');
+        form.subject_id.addEventListener('change', () => { newCourse.hidden = form.subject_id.value !== 'new'; });
+        document.getElementById('class-cancel').addEventListener('click', () => showWeek());
+        document.getElementById('class-delete')?.addEventListener('click', async () => {
+            if (!confirm('Delete this class from your timetable?')) return;
+            try {
+                await api(`/api/timetable/classes/${slot.id}`, { method: 'DELETE' });
+                showToast('Class deleted.');
+                showWeek();
+            } catch (error) { showToast(error.message); }
+        });
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const error = document.getElementById('class-error');
+            const isNew = form.subject_id.value === 'new';
+            const problem = isNew && !form.course.value.trim() ? 'Type the course code or name.'
+                : !form.start.value || !form.end.value ? 'Pick when it starts and ends.'
+                : form.start.value >= form.end.value ? 'The class must end after it starts.' : '';
+            if (problem) {
+                error.textContent = problem;
+                error.hidden = false;
+                return;
+            }
+            const body = JSON.stringify({
+                subject_id: isNew ? null : Number(form.subject_id.value),
+                course: isNew ? form.course.value.trim() : '',
+                kind: form.kind.value, day: Number(form.day.value),
+                start: form.start.value, end: form.end.value, place: form.place.value.trim(),
+            });
+            try {
+                await api(slot ? `/api/timetable/classes/${slot.id}` : '/api/timetable/classes',
+                    { method: slot ? 'PUT' : 'POST', body });
+                if (isNew) subjectList = [];   // a new subject was made; load the list again next time
+                weekDay = Number(form.day.value);
+                showToast(slot ? 'Class saved.' : 'Class added!');
+                showWeek();
+            } catch (err) {
+                error.textContent = err.message;
+                error.hidden = false;
+            }
+        });
+        form.querySelector('select').focus();
+    }
+
+    // 3. Upload a timetable: Ollie reads it, you check the classes, then save them all
+    timetableFile.addEventListener('change', async () => {
+        const file = timetableFile.files[0];
+        timetableFile.value = '';
+        if (!file) return;
+        setWeekHead('Reading your timetable', 'This takes a few seconds.', true);
+        weekBody.innerHTML = `<p class="shelf-loading"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Ollie is reading ${escapeHtml(file.name)}...</p>`;
+        setOllie('thinking', 6);
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const response = await fetch(`${API}/api/timetable/read`, { method: 'POST', body: formData });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.detail || `Something went wrong (${response.status}).`);
+            showDrafts(data);
+        } catch (error) {
+            setWeekHead('Upload timetable', '', true);
+            weekBody.innerHTML = `<p class="shelf-empty">Ollie couldn't read that timetable. ${escapeHtml(error.message)}</p>
+                <div class="subject-actions"><button class="btn btn-primary" id="week-upload">Try another file</button>
+                <button class="btn btn-soft" id="week-add">Add classes by hand</button></div>`;
+        }
+    });
+
+    function showDrafts(drafts) {
+        setWeekHead('Check your classes', `Ollie found ${classCount(drafts.length)}. Fix anything wrong, then save.`, true);
+        const hadClasses = weekData && weekData.slots.length > 0;
+        const option = (v, label, picked) => `<option value="${v}"${picked ? ' selected' : ''}>${label}</option>`;
+        weekBody.innerHTML = `
+            <form id="draft-form" class="draft-form" novalidate>
+                <div class="draft-list">
+                    ${drafts.map((d, i) => `
+                        <fieldset class="draft-row" data-row="${i}">
+                            <legend class="visually-hidden">Class ${i + 1}</legend>
+                            <input name="course" aria-label="Course" value="${escapeHtml(d.course)}">
+                            <select name="kind" aria-label="Type" class="move-select">${KINDS.map(k => option(k, k, k === d.kind)).join('')}</select>
+                            <select name="day" aria-label="Day" class="move-select">${DAY_NAMES.map((n, j) => option(j, n.slice(0, 3), j === d.day)).join('')}</select>
+                            <input type="time" name="start" aria-label="Starts" value="${d.start}">
+                            <input type="time" name="end" aria-label="Ends" value="${d.end}">
+                            <input name="place" aria-label="Room" placeholder="Room" value="${escapeHtml(d.place || '')}">
+                            <button type="button" class="icon-btn draft-remove" aria-label="Remove this class" title="Remove">
+                                <i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                        </fieldset>`).join('')}
+                </div>
+                ${hadClasses ? `<label class="draft-replace"><input type="checkbox" name="replace" checked>
+                    Replace my old timetable (${classCount(weekData.slots.length)})</label>` : ''}
+                <p class="form-error" id="draft-error" role="alert" hidden></p>
+                <div class="form-buttons">
+                    <button class="btn btn-primary" type="submit"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i> Save timetable</button>
+                    <button class="btn btn-soft" type="button" id="draft-cancel">Cancel</button>
+                </div>
+            </form>`;
+        const form = document.getElementById('draft-form');
+        form.addEventListener('click', (e) => {
+            const remove = e.target.closest('.draft-remove');
+            if (remove) remove.closest('.draft-row').remove();
+        });
+        document.getElementById('draft-cancel').addEventListener('click', () => showWeek());
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const error = document.getElementById('draft-error');
+            const rows = [...form.querySelectorAll('.draft-row')];
+            const slots = rows.map(row => {
+                const f = (name) => row.querySelector(`[name="${name}"]`).value.trim();
+                const draft = drafts[Number(row.dataset.row)];
+                // keep the matched subject unless the course was changed
+                const sameCourse = f('course') === draft.course;
+                return { subject_id: sameCourse ? draft.subject_id : null, course: f('course'), kind: f('kind'),
+                         day: Number(f('day')), start: f('start'), end: f('end'), place: f('place') };
+            });
+            const bad = slots.findIndex(s => !s.course || !s.start || !s.end || s.start >= s.end);
+            if (!slots.length || bad >= 0) {
+                error.textContent = slots.length ? `Class ${bad + 1} needs a course, and must end after it starts.` : 'There are no classes to save.';
+                error.hidden = false;
+                return;
+            }
+            try {
+                await api('/api/timetable/save', { method: 'POST',
+                    body: JSON.stringify({ slots, replace: !!form.replace?.checked }) });
+                subjectList = [];
+                showToast('Timetable saved!');
+                setOllie('happy', 1.6);
+                showWeek();
+            } catch (err) {
+                error.textContent = err.message;
+                error.hidden = false;
+            }
+        });
+    }
 
     // ---------- Chill dock: lo-fi radio, cozy sounds, focus timer, quick notes ----------
     const dockButtons = document.querySelectorAll('.dock-btn');
@@ -1861,6 +2230,8 @@ document.addEventListener('DOMContentLoaded', () => {
         summarise_document: ['fa-wand-magic-sparkles', () => 'Summarised a chapter'],
         read_my_notes: ['fa-note-sticky', () => 'Read your notes'],
         save_note: ['fa-floppy-disk', (a) => `Prepared a note${a.title ? `: ${a.title}` : ''}`],
+        get_timetable: ['fa-calendar-days', (a) => `Checked your timetable${a.day ? ` (${a.day})` : ''}`],
+        find_free_time: ['fa-mug-hot', (a) => `Found your free time${a.day ? ` (${a.day})` : ''}`],
     };
 
     function appendToolBadge(tool) {

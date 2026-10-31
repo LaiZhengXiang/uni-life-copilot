@@ -49,6 +49,21 @@ class StudyNote(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
+# ---------- Timetable: the classes you have every week ----------
+
+class ClassSlot(Base):
+    """One weekly class, e.g. BMCS1113 Lecture, Monday 08:00-10:00 in DK A."""
+    __tablename__ = "class_slots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, index=True, nullable=True)
+    course = Column(String, default="")      # the course as written, shown when there is no subject
+    kind = Column(String, default="Lecture")  # Lecture, Tutorial, Practical or Other
+    day = Column(Integer)                     # 0 = Monday ... 6 = Sunday
+    start = Column(String)                    # "08:00" (24-hour)
+    end = Column(String)                      # "10:00"
+    place = Column(String, default="")
+
 
 # ---------- Memory for the agent ----------
 

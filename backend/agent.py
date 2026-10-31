@@ -14,6 +14,7 @@ and the instructions list the student's saved preferences, so the agent "remembe
 
 Week 5, SUBJECTS (see subjects.py): it can look through the student's subject folders,
 summarise a lecture chapter, read the student's own notes, and prepare a new note (Save to confirm, like tasks).
+Week 6, TIMETABLE (see timetable.py): it can read the student's weekly classes and find their free time.
 """
 import json
 import os
@@ -28,6 +29,7 @@ import memory
 import models
 import rag
 import subjects
+import timetable
 from database import SessionLocal
 from tasks import TaskUpdate, urgency_score
 
@@ -272,6 +274,51 @@ def save_note(title: str, content: str, subject: Optional[str] = None) -> dict:
     return {"status": "waiting_for_student_to_click_save", "note": note.model_dump()}
 
 
+# ---------- Timetable tools ----------
+
+def _which_days(day: Optional[str]) -> tuple:
+    """'today', 'tomorrow', 'Monday' or '2026-11-03' -> ([0-6 day numbers], error). Empty = the whole week."""
+    if not day or day.strip().lower() in ("week", "this week", "all"):
+        return list(range(7)), None
+    wanted = day.strip().lower()
+    today = datetime.now()
+    if wanted == "today":
+        return [today.weekday()], None
+    if wanted == "tomorrow":
+        return [(today + timedelta(days=1)).weekday()], None
+    try:
+        return [datetime.strptime(wanted, "%Y-%m-%d").weekday()], None
+    except ValueError:
+        pass
+    try:
+        return [timetable.to_day(wanted)], None
+    except ValueError:
+        return [], f"'{day}' is not a day. Use today, tomorrow, a weekday name or YYYY-MM-DD."
+
+
+def get_timetable(day: Optional[str] = None) -> dict:
+    """The student's weekly classes, for one day or the whole week."""
+    days, error = _which_days(day)
+    if error:
+        return {"error": error}
+    slots = [s for s in timetable.list_slots() if s.day in days]
+    if not slots:
+        return {"classes": "No classes saved for that day. The student can add them in the calendar."}
+    return {"classes": [{"day": timetable.DAYS[s.day], "start": s.start, "end": s.end, "subject": s.label,
+                         "kind": s.kind, "place": s.place or None} for s in slots]}
+
+
+def find_free_time(day: Optional[str] = None, min_minutes: int = timetable.MIN_FREE_MINUTES) -> dict:
+    """The free gaps between classes (08:00 to 22:00), for one day or the whole week."""
+    days, error = _which_days(day)
+    if error:
+        return {"error": error}
+    gaps = [g for g in timetable.free_time(min_minutes=max(int(min_minutes or 0), 15)) if g.day in days]
+    return {"counted_between": f"{timetable.DAY_START}-{timetable.DAY_END}",
+            "free": [{"day": timetable.DAYS[g.day], "start": g.start, "end": g.end, "minutes": g.minutes}
+                     for g in gaps] or "No free time that long."}
+
+
 # Which Python function runs for each tool name the AI may ask for
 TOOL_FUNCTIONS = {
     "get_deadlines": get_deadlines,
@@ -284,6 +331,8 @@ TOOL_FUNCTIONS = {
     "summarise_document": summarise_document,
     "read_my_notes": read_my_notes,
     "save_note": save_note,
+    "get_timetable": get_timetable,
+    "find_free_time": find_free_time,
 }
 
 
@@ -495,6 +544,44 @@ TOOLS_MENU = [
     },
 ]
 
+TOOLS_MENU += [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_timetable",
+            "description": (
+                "Get the student's weekly classes (subject, lecture/tutorial/practical, time and room). "
+                "Use it for 'what classes do I have today/on Monday', 'where is my next class'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "day": {"type": "string",
+                            "description": "today, tomorrow, a weekday like 'Monday', or YYYY-MM-DD. Leave out for the whole week."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_free_time",
+            "description": (
+                "Find the student's free time: the gaps between their classes. Use it to plan when to study "
+                "or work on an assignment, or for 'when am I free on Wednesday'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "day": {"type": "string",
+                            "description": "today, tomorrow, a weekday like 'Monday', or YYYY-MM-DD. Leave out for the whole week."},
+                    "min_minutes": {"type": "integer", "description": "Only gaps at least this long. Default 30."},
+                },
+            },
+        },
+    },
+]
+
 
 def _system_prompt() -> str:
     # The AI doesn't know today's date, so we tell it every time.
@@ -519,6 +606,9 @@ def _system_prompt() -> str:
         "(you may add one short line before it). If the student wants to keep something, use save_note. "
         "A note about a lecture must only use facts you read from it (search_notes or summarise_document first). "
         "save_note does not save yet: say the note is ready and the student can click Save.\n"
+        "TIMETABLE: get_timetable gives the student's weekly classes and find_free_time the gaps between them. "
+        "When you plan study time or work on an assignment, put it in their free time, and respect what you "
+        "remember about them (for example no studying late at night).\n"
         f"Calendar for the next 14 days (copy dates from here, never calculate them yourself):\n{upcoming}\n"
         "'This Friday' or 'next Friday' means the FIRST Friday in this list.\n"
         "Use your tools to look up the student's real data; never make up deadlines. "

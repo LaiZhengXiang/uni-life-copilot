@@ -9,6 +9,7 @@ import models
 import rag
 import subjects
 import tasks
+import timetable
 from database import engine, SessionLocal
 
 # Create database tables automatically
@@ -241,3 +242,33 @@ async def edit_note(note_id: int, changes: subjects.NoteUpdate):
 @app.delete("/api/notes/{note_id}")
 async def remove_note(note_id: int):
     return subjects.delete_note(note_id)
+
+
+# ---------- Timetable: your weekly classes and the free time between them ----------
+
+@app.get("/api/timetable", response_model=timetable.Week)
+async def get_timetable():
+    """Every class, plus the free gaps in each day."""
+    return timetable.week()
+
+@app.post("/api/timetable/classes", response_model=timetable.SlotOut)
+async def add_class(data: timetable.SlotIn):
+    return timetable.create_slot(data)
+
+@app.put("/api/timetable/classes/{slot_id}", response_model=timetable.SlotOut)
+async def edit_class(slot_id: int, data: timetable.SlotIn):
+    return timetable.update_slot(slot_id, data)
+
+@app.delete("/api/timetable/classes/{slot_id}")
+async def remove_class(slot_id: int):
+    return timetable.delete_slot(slot_id)
+
+@app.post("/api/timetable/read", response_model=List[timetable.DraftSlot])
+async def read_timetable(file: UploadFile = File(...)):
+    """Reads a timetable picture or PDF and gives back the classes for you to check. Saves nothing."""
+    return timetable.read_timetable(await file.read(), file.content_type)
+
+@app.post("/api/timetable/save", response_model=List[timetable.SlotOut])
+async def save_timetable(data: timetable.SaveMany):
+    """Saves the classes you checked after an upload."""
+    return timetable.save_many(data)

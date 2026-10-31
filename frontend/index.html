@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=34">
+    <link rel="stylesheet" href="style.css?v=35">
     <link rel="stylesheet" href="ollie.css?v=32">
 </head>
 <!-- data-time (morning / afternoon / evening / night) is set by main.js from your clock -->
@@ -44,7 +44,7 @@
          (data-box = left, top, right, bottom, as fractions of the picture). -->
     <div class="room-objects" id="room-objects" hidden>
         <button class="room-hotspot" data-object="clock" data-box="0.198,0.006,0.288,0.165" data-label="Clock: today's plan" aria-label="Clock: today's plan"></button>
-        <button class="room-hotspot" data-object="calendar" data-box="0.213,0.195,0.314,0.438" data-label="Calendar: deadlines" aria-label="Calendar: deadlines"></button>
+        <button class="room-hotspot" data-object="calendar" data-box="0.213,0.195,0.314,0.438" data-label="Calendar: your timetable" aria-label="Calendar: your timetable"></button>
         <button class="room-hotspot" data-object="lamp" data-box="0.366,0.398,0.500,0.705" data-label="Lamp: light switch" aria-label="Lamp: light switch"></button>
         <button class="room-hotspot" data-object="bookshelf" data-box="0.005,0.47,0.135,0.86" data-label="Bookshelf: your subjects" aria-label="Bookshelf: your subjects"></button>
         <button class="room-hotspot" data-object="drawer" data-box="0.326,0.770,0.466,0.995" data-label="Drawer: your notes" aria-label="Drawer: your notes"></button>
@@ -99,11 +99,11 @@
                     </select>
                 </label>
 
-                <!-- Downloads your deadlines as a calendar file (works with Google Calendar and phones) -->
-                <a href="http://127.0.0.1:8000/api/calendar.ics" id="calendar-link" class="icon-btn" download
-                   aria-label="Add deadlines to my calendar" title="Add deadlines to my calendar">
-                    <i class="fa-regular fa-calendar-plus" aria-hidden="true"></i>
-                </a>
+                <!-- Your timetable and free time (the same as clicking the calendar in the room) -->
+                <button class="icon-btn" id="week-btn" aria-controls="week-panel" aria-expanded="false"
+                        aria-label="Your timetable" title="Your timetable (calendar)">
+                    <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
+                </button>
 
                 <!-- Bell: what's due in the next 3 days -->
                 <div class="bell-wrapper">
@@ -183,6 +183,25 @@
                     </button>
                 </div>
                 <div class="shelf-body" id="shelf-body" aria-live="polite"></div>
+            </section>
+
+            <!-- ===== Calendar: your weekly classes, free time and this week's deadlines ===== -->
+            <div class="tasks-backdrop" id="week-backdrop" hidden></div>
+            <section class="panel week-panel" id="week-panel" aria-labelledby="week-title" hidden>
+                <div class="panel-head shelf-head">
+                    <button class="icon-btn" id="week-back" aria-label="Back to the week" title="Back" hidden>
+                        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                    </button>
+                    <div class="panel-title">
+                        <h2 id="week-title">This week</h2>
+                        <p class="list-hint" id="week-hint"></p>
+                    </div>
+                    <button class="icon-btn" id="close-week" aria-label="Close the timetable" title="Close (Esc)">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="shelf-body" id="week-body" aria-live="polite"></div>
+                <input type="file" id="timetable-file" accept="image/png,image/jpeg,image/webp,application/pdf" hidden>
             </section>
 
             <!-- ===== Chat with Ollie: slides in from the right, Ollie stays in the room beside it ===== -->
@@ -471,6 +490,6 @@
         </div>
     </div>
 
-    <script src="main.js?v=36"></script>
+    <script src="main.js?v=37"></script>
 </body>
 </html>
