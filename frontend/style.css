@@ -2469,6 +2469,9 @@ button.shelf-row:focus-visible { border-color: var(--accent); }
 .note-read[hidden] { display: none; }
 
 @media (max-width: 767px) {
+    /* Upload, New note, Edit and Delete fit on one line on a phone */
+    .subject-actions { gap: 6px; }
+    .subject-actions .btn { padding-left: 12px; padding-right: 12px; }
     .row-actions { width: 100%; }
     .shelf-row:not(button) { flex-wrap: wrap; }
 }

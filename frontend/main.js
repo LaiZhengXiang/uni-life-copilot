@@ -703,7 +703,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function api(path, options = {}) {
         const response = await fetch(`${API}${path}`, {
             ...options,
-            headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+            // JSON gets its header; a FormData upload must set its own
+            headers: typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : undefined,
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || `Something went wrong (${response.status}).`);
