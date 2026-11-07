@@ -149,7 +149,7 @@ class DraftSlot(BaseModel):
 def _slot_out(slot: models.ClassSlot, folders: dict) -> SlotOut:
     folder = folders.get(slot.subject_id)
     label = f"{folder.code} {folder.name}".strip() if folder else (slot.course or "Class")
-    code = (folder.code or folder.name) if folder else (subjects.split_course(slot.course)[0] or slot.course)
+    code = (folder.code or folder.name) if folder else (subjects.split_course(slot.course)[0] or label)
     return SlotOut(id=slot.id, subject_id=slot.subject_id if folder else None, label=label, code=code,
                    kind=slot.kind, day=slot.day, start=slot.start, end=slot.end, place=slot.place or "")
 

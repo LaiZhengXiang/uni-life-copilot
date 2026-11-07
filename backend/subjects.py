@@ -233,12 +233,15 @@ def update_subject(subject_id: int, changes: SubjectUpdate) -> SubjectOut:
 
 
 def delete_subject(subject_id: int) -> dict:
-    """Removes the folder only. Its PDFs, tasks and notes are kept and move to "Other"."""
+    """Removes the folder only. Its PDFs, tasks and notes are kept and move to "Other", and its classes stay."""
     db = SessionLocal()
     try:
         subject = _get_subject(db, subject_id)
         db.query(models.TaskRecord).filter(models.TaskRecord.subject_id == subject_id).update({"subject_id": None})
         db.query(models.StudyNote).filter(models.StudyNote.subject_id == subject_id).update({"subject_id": None})
+        # Classes stay on the timetable: they keep the subject's name, written on the class itself
+        db.query(models.ClassSlot).filter(models.ClassSlot.subject_id == subject_id).update(
+            {"subject_id": None, "course": f"{subject.code} {subject.name}".strip()})
         db.delete(subject)
         db.commit()
         return {"message": "Subject removed. Its files and notes moved to Other."}
