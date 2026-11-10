@@ -42,6 +42,7 @@ body[data-time="morning"] {
     --surface-done: rgba(27, 34, 48, 0.04);
     --ink: #1B2230;
     --ink-soft: #4A5366;
+    --free-ink: #1F6B45;   /* the green of free time on the timetable */
     --ink-faint: #9AA3B5;
     --line: rgba(27, 34, 48, 0.10);
     --line-strong: rgba(27, 34, 48, 0.18);
@@ -60,6 +61,7 @@ body[data-time="afternoon"] {
     --surface-done: rgba(42, 32, 22, 0.04);
     --ink: #2A2016;
     --ink-soft: #5B4A38;
+    --free-ink: #2E6A3F;   /* the green of free time on the timetable */
     --ink-faint: #B09D88;
     --line: rgba(42, 32, 22, 0.11);
     --line-strong: rgba(42, 32, 22, 0.19);
@@ -78,6 +80,7 @@ body[data-time="evening"] {
     --surface-done: rgba(255, 255, 255, 0.03);
     --ink: #FBEFE8;
     --ink-soft: #D9C5CC;
+    --free-ink: #8FD9B0;   /* the green of free time on the timetable */
     --ink-faint: #8E7680;
     --line: rgba(255, 255, 255, 0.10);
     --line-strong: rgba(255, 255, 255, 0.18);
@@ -101,6 +104,7 @@ body[data-time="night"] {
     --surface-done: rgba(255, 255, 255, 0.03);
     --ink: #E7ECF8;
     --ink-soft: #A8B2CB;
+    --free-ink: #8FD9B0;   /* the green of free time on the timetable */
     --ink-faint: #5E6A86;
     --line: rgba(255, 255, 255, 0.09);
     --line-strong: rgba(255, 255, 255, 0.17);
@@ -2599,7 +2603,7 @@ button.week-col-head:hover { border-color: var(--line-strong); }
     border: 1px dashed hsl(150 45% 55% / 0.55);
     background: hsl(150 45% 50% / 0.08);
 }
-.week-free span { font-size: 0.72rem; font-weight: 700; color: hsl(150 40% 62%); }
+.week-free span { font-size: 0.72rem; font-weight: 700; color: var(--free-ink); }
 
 /* One day as a list */
 .week-day { display: flex; flex-direction: column; gap: 10px; }
@@ -2628,7 +2632,7 @@ button.week-col-head:hover { border-color: var(--line-strong); }
 }
 .day-class { border-left: 4px solid hsl(var(--hue) 62% 58%); }
 .day-free { border-style: dashed; background: hsl(150 45% 50% / 0.08); }
-.day-free strong { color: hsl(150 40% 62%); }
+.day-free strong { color: var(--free-ink); }
 
 /* Add or edit a class */
 .form-select { min-height: 44px; max-width: none; font-size: 0.95rem; }
