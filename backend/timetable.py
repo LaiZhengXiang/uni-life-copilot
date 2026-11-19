@@ -355,7 +355,7 @@ def read_timetable(file_bytes: bytes, content_type: str, filename: str = "") -> 
     elif content_type in PICTURE_TYPES:
         drafts = ai_service._ask_ai_about_image(PROMPT, (file_bytes, content_type), _read_slots, GEMINI_SLOTS_SCHEMA)
     else:
-        raise HTTPException(status_code=400, detail="Please upload a picture (PNG or JPG) or a PDF of your timetable.")
+        raise HTTPException(status_code=400, detail="Please upload a picture (PNG, JPG, WebP or an iPhone HEIC photo) or a PDF of your timetable.")
 
     if not drafts:
         raise HTTPException(status_code=422, detail="Ollie couldn't find any classes in that file.")
