@@ -266,7 +266,7 @@ async def remove_class(slot_id: int):
 @app.post("/api/timetable/read", response_model=List[timetable.DraftSlot])
 async def read_timetable(file: UploadFile = File(...)):
     """Reads a timetable picture or PDF and gives back the classes for you to check. Saves nothing."""
-    return timetable.read_timetable(await file.read(), file.content_type)
+    return timetable.read_timetable(await file.read(), file.content_type, file.filename)
 
 @app.post("/api/timetable/save", response_model=List[timetable.SlotOut])
 async def save_timetable(data: timetable.SaveMany):

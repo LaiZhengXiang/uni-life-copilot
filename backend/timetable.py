@@ -8,6 +8,7 @@ Free time is simple: the gaps between your classes, from DAY_START to DAY_END.
 Both the website (main.py) and the agent (agent.py) use these functions.
 """
 import json
+import os
 import re
 from typing import List, Optional
 
@@ -319,11 +320,27 @@ def _read_slots(answer: str) -> List[DraftSlot]:
     return _sorted(drafts)
 
 
-def read_timetable(file_bytes: bytes, content_type: str) -> List[DraftSlot]:
+# Some browsers and phones label files oddly ("image/jpg", or just "application/octet-stream"),
+# so the file name's ending is used when the label isn't one we know
+FILE_ENDINGS = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                ".webp": "image/webp", ".heic": "image/heic", ".heif": "image/heif"}
+SAME_TYPE = {"image/jpg": "image/jpeg", "image/pjpeg": "image/jpeg"}
+
+
+def _file_type(content_type: Optional[str], filename: Optional[str]) -> str:
+    content_type = (content_type or "").lower().split(";")[0].strip()
+    content_type = SAME_TYPE.get(content_type, content_type)
+    if content_type == "application/pdf" or content_type in PICTURE_TYPES:
+        return content_type
+    ending = os.path.splitext((filename or "").lower())[1]
+    return FILE_ENDINGS.get(ending, content_type)
+
+
+def read_timetable(file_bytes: bytes, content_type: str, filename: str = "") -> List[DraftSlot]:
     """Reads a timetable picture or PDF. Returns the classes found; nothing is saved."""
     if len(file_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=400, detail="That file is too big (10 MB at most).")
-    content_type = (content_type or "").lower()
+    content_type = _file_type(content_type, filename)
 
     if content_type == "application/pdf":
         text = ai_service.extract_text_from_pdf(file_bytes)
